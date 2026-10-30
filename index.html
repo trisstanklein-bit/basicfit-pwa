@@ -1,0 +1,396 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<meta name="theme-color" content="#11141c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Basic-Fit">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="apple-touch-icon" href="./icon-192.png">
+
+</head><body>
+<title>Séances Basic-Fit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: écran unique pour téléphone. Barre de jours collante en haut, cartes d'exercices empilées, circuit abdos en fin de séance, minuteur de repos fixé en bas. */
+:root {
+  --bg: #eef0f4;
+  --surface: #ffffff;
+  --fg: #151a26;
+  --muted: #5d6578;
+  --line: #d7dbe5;
+  --accent: #2457f5;
+  --accent-fg: #ffffff;
+  --done: #1f8a5b;
+  --warn-bg: #fff3d6;
+  --warn-fg: #6b4a00;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141c; --surface: #1a1f2b; --fg: #eceff6; --muted: #98a1b5; --line: #2c3344;
+    --accent: #6f93ff; --accent-fg: #0b1020; --done: #4cc38a; --warn-bg: #3a2f10; --warn-fg: #f2d58a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141c; --surface: #1a1f2b; --fg: #eceff6; --muted: #98a1b5; --line: #2c3344;
+  --accent: #6f93ff; --accent-fg: #0b1020; --done: #4cc38a; --warn-bg: #3a2f10; --warn-fg: #f2d58a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.4;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 120px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 640px; margin: 0 auto; }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--bg); padding: 12px 0 10px; }
+.top h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 8px; color: var(--muted); }
+.days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.day { font: inherit; border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 10px; padding: 10px 4px 8px; text-align: center; cursor: pointer; min-width: 0; }
+.day b { display: block; font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; line-height: 1.1; text-transform: uppercase; letter-spacing: .03em; }
+.day span { display: block; font-size: .72rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.day[aria-pressed="true"] span { color: var(--accent-fg); opacity: .85; }
+.day:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 14px 0 4px; flex-wrap: wrap; }
+.head h2 { font-family: var(--font-display); font-size: 2rem; font-weight: 700; margin: 0; line-height: 1.05; text-wrap: balance; }
+.progress { font-variant-numeric: tabular-nums; color: var(--muted); font-size: .95rem; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 8px 0 12px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--done); transition: width .25s; }
+.rule { background: var(--warn-bg); color: var(--warn-fg); border-radius: 10px; padding: 10px 12px; font-size: .92rem; margin-bottom: 12px; }
+details.warm { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
+details.warm summary { cursor: pointer; padding: 12px 14px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+details.warm summary::after { content: "+"; color: var(--muted); font-size: 1.3rem; line-height: 1; }
+details.warm[open] summary::after { content: "−"; }
+details.warm ul { margin: 0; padding: 0 14px 12px 32px; color: var(--muted); font-size: .93rem; }
+details.warm li { margin: 3px 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+.card.done { border-color: var(--done); }
+.card h3 { font-size: 1.08rem; font-weight: 600; margin: 0 0 6px; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+.meta small { font-family: var(--font-body); font-size: .8rem; font-weight: 400; color: var(--muted); margin-left: 3px; }
+.note { color: var(--muted); font-size: .9rem; margin: 0 0 10px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sets { display: flex; gap: 8px; flex-wrap: wrap; }
+.set { width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--line); background: var(--bg); color: var(--muted); font: 600 1.05rem var(--font-body); cursor: pointer; padding: 0; }
+.set[aria-pressed="true"] { background: var(--done); border-color: var(--done); color: #fff; }
+.load { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); }
+.load input { width: 84px; font: inherit; font-size: 1rem; padding: 9px 8px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--bg); color: var(--fg); text-align: center; }
+details.how { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+details.how summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .92rem; list-style: none; padding: 4px 0; }
+details.how summary::before { content: "▸ "; }
+details.how[open] summary::before { content: "▾ "; }
+.links { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.links a { display: block; padding: 11px 12px; border: 1.5px solid var(--line); border-radius: 8px; color: var(--fg); text-decoration: none; font-size: .92rem; overflow-wrap: anywhere; }
+.links a span { color: var(--muted); font-size: .8rem; display: block; }
+.circuit { border-color: var(--accent); }
+.circuit .intro { color: var(--muted); font-size: .9rem; margin: 0 0 10px; }
+.circuit ol { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.circuit li { border-top: 1px solid var(--line); padding-top: 10px; }
+.circuit li:first-child { border-top: 0; padding-top: 0; }
+.circuit li b { display: block; font-weight: 600; }
+.circuit li .reps { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; margin-right: 8px; }
+.circuit li .cn { color: var(--muted); font-size: .9rem; }
+.rounds-label { font-size: .85rem; color: var(--muted); margin: 0 0 6px; }
+.reset { margin-top: 14px; width: 100%; font: inherit; font-weight: 600; padding: 13px; border-radius: 10px; border: 1.5px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; }
+.reset.arm { border-color: #c0392b; color: #c0392b; }
+.timer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; background: var(--accent); color: var(--accent-fg);
+  padding: 12px max(16px, env(safe-area-inset-left, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
+.timer .in { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.timer b { font-family: var(--font-display); font-size: 2rem; font-variant-numeric: tabular-nums; line-height: 1; }
+.timer button { font: inherit; font-weight: 600; background: transparent; color: inherit; border: 1.5px solid currentColor; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.timer.end { background: var(--done); color: #fff; }
+.foot { color: var(--muted); font-size: .82rem; margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600;700&display=swap">
+
+<div class="wrap">
+  <div class="top">
+    <h1>Séances Basic-Fit</h1>
+    <div class="days" id="days" role="group" aria-label="Choisir le jour"></div>
+  </div>
+  <main id="main"></main>
+</div>
+<div class="timer" id="timer" hidden>
+  <div class="in"><span id="timerLabel">Repos</span><b id="timerTime">0:00</b><button id="timerSkip" type="button">Passer</button></div>
+</div>
+
+<script>
+var WARM = [
+  "3 min de rameur ou de vélo léger",
+  "Cercles d'épaules et rotations externes à l'élastique ou à la poulie basse : 2 × 15",
+  "Pull-apart à l'élastique : 2 × 15",
+  "Mobilité thoracique : « open book » au sol (8 par côté) ou chat-vache (× 10)",
+  "1 à 2 séries de montée en charge sur le premier exercice"
+];
+var RULE = "Côté gauche toujours en premier. Mêmes répétitions des deux côtés, avec la charge que le côté le moins musclé tient proprement. RPE 8 = 2 répétitions en réserve, RPE 9 = 1.";
+
+/* Circuit abdos commun aux 4 séances : [nom, répétitions, note, lien, "en" si la page est en anglais] */
+var CIRCUIT = {
+  rounds: 3, restSec: 75,
+  intro: "Enchaîne les 4 exercices sans repos, puis 60 à 90 s de repos entre les tours. RPE 9.",
+  items: [
+    ["Crunch à la poulie haute (à genoux)", "12–15", "Arrondis la colonne, ne tire pas avec les bras.", "https://fitwill.app/fr/exercise/0175/cable-kneeling-crunch/"],
+    ["Relevé de jambes suspendu aux barres (Captain's Chair)", "10–15", "Bassin enroulé, sans élan.", "https://boxlifemagazine.com/chaise-romaine-exercice/"],
+    ["Gainage latéral (planche côté)", "30–40 s par côté", "Gauche d'abord, même durée à droite.", "https://conseilsport.decathlon.fr/gainage-lateral-sculpter-votre-corps-en-douceur"],
+    ["Dead bug", "10 par côté", "Gauche d'abord. Bas du dos plaqué au sol.", "https://www.health.harvard.edu/exercise-and-fitness/the-many-benefits-of-the-dead-bug", "en"]
+  ]
+};
+
+/* Exercices : [nom, séries, répétitions, repos, RPE, note, lien, "en" si la page est en anglais] */
+var DAYS = [
+  { id: "lundi", short: "Lun", dow: 1, tag: "Push A", title: "Push A · pecs, épaules, abdos", ex: [
+    ["Développé couché haltères sur banc incliné (30°)", 4, "8–10", "2 min", "8", "Haut des pecs. Haltères indépendants, mêmes reps des deux côtés.", "https://www.fitadium.com/conseils/developpe-incline/"],
+    ["Développé couché machine (Chest Press)", 3, "10–12", "90 s", "8–9", "Option : à un bras en commençant par la gauche.", "https://www.hingehealth.com/ca/fr/resources/articles/seated-chest-press/"],
+    ["Élévations latérales à la poulie basse, une main", 4, "12–15", "60 s", "9", "Gauche d'abord. Accent sur le deltoïde latéral.", "https://fitwill.app/fr/exercise/2231/cable-one-arm-lateral-raise/"],
+    ["Développé épaules haltères assis (banc à dossier)", 3, "8–10", "2 min", "8", "Haltères pour respecter chaque côté.", "https://fitwill.app/fr/exercise/2237/dumbbell-seated-shoulder-press/"],
+    ["Écartés à la poulie vis-à-vis (haute vers basse)", 3, "12–15", "60 s", "9", "Pecs bas et partie interne. Un bras à la fois, gauche d'abord.", "https://www.fitadium.com/conseils/poulie-vis-a-vis/"],
+    ["Extensions triceps à la poulie, une main", 2, "12–15", "60 s", "9", "Gauche d'abord.", "https://www.fitadium.com/conseils/triceps-extension-poulie-haute/"]
+  ]},
+  { id: "mardi", short: "Mar", dow: 2, tag: "Pull", title: "Pull + abdos · dos, stabilisateurs", ex: [
+    ["Rowing unilatéral à la poulie basse (ou rowing haltère)", 4, "10–12", "90 s", "8", "Gauche d'abord. Dos neutre, pas de rotation du tronc.", "https://conseilsport.decathlon.fr/maitriser-le-rowing-haltere-ou-tirage-bucheron"],
+    ["Tirage vertical à la poulie haute, prise neutre ou large", 3, "10–12", "90 s", "8", "Une main à la fois en variante si un côté domine.", "https://www.fitadium.com/conseils/tirage-vertical/"],
+    ["Rotation externe à la poulie, une main (coude collé)", 3, "12–15", "60 s", "8–9", "Gauche d'abord. Charge légère, coude à 90° collé au corps. Protège l'épaule.", "https://www.fitnesspark.fr/?p=13509"],
+    ["Rowing assis à la machine (Seated Row)", 3, "10–12", "90 s", "8", "Pause d'une seconde en contraction.", "https://www.strengthlog.com/seated-machine-row", "en"],
+    ["Oiseau (Reverse Fly) à la machine ou aux haltères", 4, "12–15", "60 s", "9", "Deltoïde postérieur.", "https://boxlifemagazine.com/exercice-arriere-epaule/"],
+    ["Curl haltères alternés", 2, "10–12", "60 s", "8–9", "Gauche d'abord.", "https://nutriandco.com/fr/pages/curl-haltere"]
+  ]},
+  { id: "jeudi", short: "Jeu", dow: 4, tag: "Jambes", title: "Jambes + épaules · abdos", ex: [
+    ["Presse à cuisses (Leg Press)", 4, "10–12", "2 min", "8", "Pas de squat lourd. Pieds à hauteur moyenne, bas du dos bien appuyé.", "https://boxlifemagazine.com/presse-a-cuisse/"],
+    ["Leg Extension à une jambe (machine)", 3, "10–12 par jambe", "90 s", "8–9", "Jambe gauche d'abord, même nombre de reps à droite. Sans claquer le genou en haut.", "https://www.topendsports.com/fitness/technique/leg-extension.htm", "en"],
+    ["Leg Curl assis (machine)", 3, "10–12", "90 s", "8–9", "Ischio-jambiers.", "https://boxlifemagazine.com/leg-curl-assis/"],
+    ["Élévations latérales aux haltères (assis ou debout)", 4, "12–15", "60 s", "9", "Gauche d'abord si exécutées en alternance.", "https://nutriandco.com/fr/pages/elevations-laterales"],
+    ["Élévations frontales à la poulie basse", 2, "12–15", "60 s", "9", "Faisceau antérieur, une main à la fois.", "https://fitwill.app/fr/exercise/2515/cable-front-raise/"]
+  ]},
+  { id: "samedi", short: "Sam", dow: 6, tag: "Push B", title: "Push B · pecs, épaules, haut du dos", ex: [
+    ["Développé incliné à la Smith Machine ou machine inclinée", 4, "8–10", "2 min", "8", "Haut des pecs. Stable si fatigué.", "https://fitwill.app/fr/exercise/0757/smith-incline-bench-press/"],
+    ["Développé couché haltères (banc plat)", 3, "8–10", "2 min", "8", "Haltères indépendants, mêmes reps des deux côtés.", "https://nutriandco.com/fr/pages/developpe-couche-haltere"],
+    ["Pec Deck (butterfly) à la machine", 3, "12–15", "60 s", "9", "Contraction interne en fin de mouvement.", "https://www.fitadium.com/conseils/pec-deck-butterfly/"],
+    ["Dips lestés ou assistés (barres parallèles)", 3, "8–12", "90 s", "8–9", "Pecs bas. Buste légèrement penché, arrêter si douleur d'épaule.", "https://www.fitadium.com/conseils/dips-barres-paralleles"],
+    ["Élévations latérales à la poulie, une main (bras devant le corps)", 4, "12–15", "60 s", "9", "Gauche d'abord.", "https://fitwill.app/fr/exercise/2231/cable-one-arm-lateral-raise/"],
+    ["Développé militaire machine (Shoulder Press)", 3, "10–12", "90 s", "8", "Charge sans compression de la colonne.", "https://bodybuilding.com/exercises/machine-shoulder-military-press", "en"],
+    ["Rowing barre T ou rowing à la poulie, prise large", 3, "10–12", "90 s", "8", "Épaisseur du haut du dos.", "https://quentin-fitlife.fr/entrainement/exercices-musculation/rowing-t-bar-machine/"]
+  ]}
+];
+
+var store = {};
+try { store = JSON.parse(localStorage.getItem("basicfit-v1") || "{}"); } catch (e) { store = {}; }
+store.sets = store.sets || {};
+store.load = store.load || {};
+function save() { try { localStorage.setItem("basicfit-v1", JSON.stringify(store)); } catch (e) {} }
+
+function pickDay() {
+  var h = (location.hash || "").replace("#", "");
+  for (var i = 0; i < DAYS.length; i++) if (DAYS[i].id === h) return DAYS[i];
+  var d = new Date().getDay();
+  for (var j = 0; j < DAYS.length; j++) if (DAYS[j].dow === d) return DAYS[j];
+  for (var k = 0; k < DAYS.length; k++) if (DAYS[k].dow > d) return DAYS[k];
+  return DAYS[0];
+}
+var cur = pickDay();
+var armed = false;
+var daysEl = document.getElementById("days");
+var mainEl = document.getElementById("main");
+
+function restSeconds(t) {
+  var m = /(\d+)\s*min/.exec(t); if (m) return parseInt(m[1], 10) * 60;
+  var s = /(\d+)\s*s/.exec(t); return s ? parseInt(s[1], 10) : 60;
+}
+function setKey(day, i, n) { return day.id + ":" + i + ":" + n; }
+function roundKey(day, n) { return day.id + ":c:" + n; }
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function host(u) { return u.split("/")[2].replace(/^www\./, ""); }
+
+function howMenu(name, url, en) {
+  var d = el("details", "how");
+  d.appendChild(el("summary", null, "Comment faire"));
+  var box = el("div", "links");
+  var a = el("a", null, "Explication de l'exercice");
+  a.href = url; a.target = "_blank"; a.rel = "noopener";
+  a.appendChild(el("span", null, host(url) + (en ? " · page en anglais" : "")));
+  box.appendChild(a);
+  var y = el("a", null, "Vidéos de démonstration");
+  y.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent(name.replace(/\s*\(.*?\)/g, "") + " exécution");
+  y.target = "_blank"; y.rel = "noopener";
+  y.appendChild(el("span", null, "youtube.com · recherche"));
+  box.appendChild(y);
+  d.appendChild(box);
+  return d;
+}
+
+function renderDays() {
+  daysEl.innerHTML = "";
+  DAYS.forEach(function (d) {
+    var b = el("button", "day"); b.type = "button";
+    b.setAttribute("aria-pressed", d === cur ? "true" : "false");
+    b.appendChild(el("b", null, d.short)); b.appendChild(el("span", null, d.tag));
+    b.addEventListener("click", function () { cur = d; armed = false; location.hash = d.id; render(); window.scrollTo(0, 0); });
+    daysEl.appendChild(b);
+  });
+}
+
+function countDone(day) {
+  var done = 0, total = 0;
+  day.ex.forEach(function (x, i) { for (var n = 0; n < x[1]; n++) { total++; if (store.sets[setKey(day, i, n)]) done++; } });
+  for (var r = 0; r < CIRCUIT.rounds; r++) { total++; if (store.sets[roundKey(day, r)]) done++; }
+  return { done: done, total: total };
+}
+
+function updateProgress() {
+  var c = countDone(cur);
+  document.getElementById("prog").textContent = c.done + " / " + c.total + " séries";
+  document.getElementById("barfill").style.width = (c.total ? (100 * c.done / c.total) : 0) + "%";
+  cur.ex.forEach(function (x, i) {
+    var all = true;
+    for (var n = 0; n < x[1]; n++) if (!store.sets[setKey(cur, i, n)]) all = false;
+    var card = document.getElementById("ex" + i);
+    if (card) card.classList.toggle("done", all);
+  });
+  var allR = true;
+  for (var r = 0; r < CIRCUIT.rounds; r++) if (!store.sets[roundKey(cur, r)]) allR = false;
+  var cc = document.getElementById("circuit");
+  if (cc) cc.classList.toggle("done", allR);
+}
+
+function render() {
+  renderDays();
+  mainEl.innerHTML = "";
+  var head = el("div", "head");
+  head.appendChild(el("h2", null, cur.title));
+  var p = el("span", "progress"); p.id = "prog"; head.appendChild(p);
+  mainEl.appendChild(head);
+  var bar = el("div", "bar"); var fill = document.createElement("i"); fill.id = "barfill"; bar.appendChild(fill); mainEl.appendChild(bar);
+  mainEl.appendChild(el("div", "rule", RULE));
+
+  var det = el("details", "warm"); det.appendChild(el("summary", null, "Échauffement · 8 à 10 min"));
+  var ul = document.createElement("ul"); WARM.forEach(function (w) { ul.appendChild(el("li", null, w)); });
+  det.appendChild(ul); mainEl.appendChild(det);
+
+  cur.ex.forEach(function (x, i) {
+    var card = el("section", "card"); card.id = "ex" + i;
+    card.appendChild(el("h3", null, x[0]));
+    var meta = el("div", "meta");
+    var s1 = el("span", null, x[1] + " × " + x[2]);
+    var s2 = el("span", null, x[3]); s2.appendChild(el("small", null, "repos"));
+    var s3 = el("span", null, "RPE " + x[4]);
+    meta.appendChild(s1); meta.appendChild(s2); meta.appendChild(s3);
+    card.appendChild(meta);
+    card.appendChild(el("p", "note", x[5]));
+    var row = el("div", "row");
+    var sets = el("div", "sets");
+    for (var n = 0; n < x[1]; n++) (function (n) {
+      var b = el("button", "set", String(n + 1)); b.type = "button";
+      var key = setKey(cur, i, n);
+      b.setAttribute("aria-pressed", store.sets[key] ? "true" : "false");
+      b.setAttribute("aria-label", "Série " + (n + 1));
+      b.addEventListener("click", function () {
+        var on = !store.sets[key];
+        if (on) store.sets[key] = 1; else delete store.sets[key];
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+        save(); updateProgress();
+        if (on) startTimer(restSeconds(x[3])); else stopTimer();
+      });
+      sets.appendChild(b);
+    })(n);
+    row.appendChild(sets);
+    var lab = el("label", "load"); lab.setAttribute("for", "load" + i);
+    lab.appendChild(document.createTextNode("Charge"));
+    var inp = document.createElement("input"); inp.id = "load" + i; inp.type = "text"; inp.inputMode = "decimal"; inp.placeholder = "kg";
+    inp.value = store.load[x[0]] || "";
+    inp.addEventListener("input", function () { store.load[x[0]] = inp.value; save(); });
+    lab.appendChild(inp); row.appendChild(lab);
+    card.appendChild(row);
+    card.appendChild(howMenu(x[0], x[6], x[7] === "en"));
+    mainEl.appendChild(card);
+  });
+
+  /* Circuit abdos */
+  var cc = el("section", "card circuit"); cc.id = "circuit";
+  cc.appendChild(el("h3", null, "Circuit abdos · " + CIRCUIT.rounds + " tours"));
+  cc.appendChild(el("p", "intro", CIRCUIT.intro));
+  var ol = document.createElement("ol");
+  CIRCUIT.items.forEach(function (it) {
+    var li = document.createElement("li");
+    li.appendChild(el("b", null, it[0]));
+    var line = el("div");
+    line.appendChild(el("span", "reps", it[1]));
+    line.appendChild(el("span", "cn", it[2]));
+    li.appendChild(line);
+    li.appendChild(howMenu(it[0], it[3], it[4] === "en"));
+    ol.appendChild(li);
+  });
+  cc.appendChild(ol);
+  cc.appendChild(el("p", "rounds-label", "Tours terminés"));
+  var rs = el("div", "sets");
+  for (var r = 0; r < CIRCUIT.rounds; r++) (function (r) {
+    var b = el("button", "set", String(r + 1)); b.type = "button";
+    var key = roundKey(cur, r);
+    b.setAttribute("aria-pressed", store.sets[key] ? "true" : "false");
+    b.setAttribute("aria-label", "Tour " + (r + 1));
+    b.addEventListener("click", function () {
+      var on = !store.sets[key];
+      if (on) store.sets[key] = 1; else delete store.sets[key];
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      save(); updateProgress();
+      if (on && r < CIRCUIT.rounds - 1) startTimer(CIRCUIT.restSec); else stopTimer();
+    });
+    rs.appendChild(b);
+  })(r);
+  cc.appendChild(rs);
+  mainEl.appendChild(cc);
+
+  var rst = el("button", "reset", "Remettre la séance à zéro"); rst.type = "button";
+  rst.addEventListener("click", function () {
+    if (!armed) { armed = true; rst.textContent = "Toucher encore pour confirmer"; rst.classList.add("arm"); return; }
+    cur.ex.forEach(function (x, i) { for (var n = 0; n < x[1]; n++) delete store.sets[setKey(cur, i, n)]; });
+    for (var q = 0; q < CIRCUIT.rounds; q++) delete store.sets[roundKey(cur, q)];
+    armed = false; save(); stopTimer(); render();
+  });
+  mainEl.appendChild(rst);
+  mainEl.appendChild(el("p", "foot", "Les charges sont gardées d'une semaine à l'autre. Les séries cochées sont enregistrées sur ce téléphone."));
+  updateProgress();
+}
+
+var tEl = document.getElementById("timer"), tTime = document.getElementById("timerTime"), tLab = document.getElementById("timerLabel");
+var tInt = null, tEnd = 0;
+function fmt(s) { return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
+function stopTimer() { if (tInt) clearInterval(tInt); tInt = null; tEl.hidden = true; tEl.classList.remove("end"); }
+function startTimer(sec) {
+  stopTimer(); tEnd = Date.now() + sec * 1000; tEl.hidden = false; tLab.textContent = "Repos";
+  function tick() {
+    var left = Math.round((tEnd - Date.now()) / 1000);
+    if (left <= 0) {
+      clearInterval(tInt); tInt = null; tTime.textContent = "0:00"; tLab.textContent = "Repos terminé"; tEl.classList.add("end");
+      try { if (navigator.vibrate) navigator.vibrate(300); } catch (e) {}
+      setTimeout(function () { if (!tInt) stopTimer(); }, 6000);
+      return;
+    }
+    tTime.textContent = fmt(left);
+  }
+  tick(); tInt = setInterval(tick, 500);
+}
+document.getElementById("timerSkip").addEventListener("click", stopTimer);
+window.addEventListener("hashchange", function () { var n = pickDay(); if (n !== cur) { cur = n; render(); } });
+try { if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {}); } catch (e) {}
+render();
+</script>
+
+
+<script>
+  // Enregistrement PWA : le chemin relatif fonctionne aussi sur GitHub Pages.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./sw.js").catch(function (error) {
+        console.error("Enregistrement hors connexion impossible :", error);
+      });
+    });
+  }
+</script>
+
+</body></html>
