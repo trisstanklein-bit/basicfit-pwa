@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -22,6 +21,12 @@ button{cursor:pointer}
 .brand{font:700 19px 'Space Grotesk';letter-spacing:-.7px}
 .brand span{color:var(--lime)}
 .date{color:var(--muted);font-size:12px}
+.top-right{display:flex;align-items:center;gap:8px}
+.cloud-toggle{display:flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 9px;font-size:11px;font-weight:700;cursor:pointer}
+.cloud-toggle:active{transform:scale(.97)}
+.cloud-panel{margin:0 0 14px;padding:14px}
+.cloud-panel[hidden]{display:none}
+#cloudShortStatus{max-width:75px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.7px;color:var(--lime);font-weight:800}
 .hero{padding:20px 0 22px}
 .hero h1{font:700 clamp(34px,9vw,48px)/1.02 'Space Grotesk';letter-spacing:-2px;margin:8px 0 10px}
@@ -100,6 +105,7 @@ button{cursor:pointer}
 .chart small{font-size:9px;color:var(--muted)}
 .foot{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center}
 #cloudEmail{width:100%;padding:12px;background:#111318;border:1px solid #3a3f49;border-radius:10px;color:white;margin:8px 0}
+@media(max-width:380px){.brand{font-size:16px}.cloud-toggle{padding:7px}.date{font-size:10px}}
 @media(min-width:600px){.app{padding:0 26px}.hero-card{padding:25px}.timer{max-width:680px;margin:auto;left:0;right:0}}
 </style>
 </head>
@@ -107,10 +113,17 @@ button{cursor:pointer}
 <div class="app">
 <header class="top">
   <div class="brand">BASIC<span>FIT</span> / TRACKER</div>
-  <div class="date" id="today"></div>
+  <div class="top-right">
+    <button id="cloudToggle" class="cloud-toggle" type="button"
+      aria-expanded="false" aria-controls="cloudPanel">
+      <span id="cloudIndicator">☁</span>
+      <span id="cloudShortStatus">Compte</span>
+    </button>
+    <div class="date" id="today"></div>
+  </div>
 </header>
 
-<section class="panel" id="cloudPanel" style="margin-top:12px">
+<section class="panel cloud-panel" id="cloudPanel" hidden>
   <h3>☁️ Synchronisation</h3>
   <p class="muted" id="cloudStatus" style="font-size:12px">
     Non connecté · Tes données restent enregistrées sur cet appareil.
@@ -358,8 +371,44 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
   const login=document.getElementById('cloudLogin');
   const logout=document.getElementById('cloudLogout');
 
+  const cloudToggle=document.getElementById('cloudToggle');
+  const cloudPanel=document.getElementById('cloudPanel');
+  const shortStatus=document.getElementById('cloudShortStatus');
+  const indicator=document.getElementById('cloudIndicator');
+
+  cloudToggle.addEventListener('click',function(){
+    const opening=cloudPanel.hidden;
+    cloudPanel.hidden=!opening;
+    cloudToggle.setAttribute('aria-expanded',String(opening));
+  });
+
   function showStatus(message){
     status.textContent=message;
+
+    const lower=message.toLowerCase();
+
+    if(lower.includes('synchronisé')){
+      shortStatus.textContent='À jour';
+      indicator.textContent='☁️';
+    }else if(lower.includes('synchronisation en cours')||lower.includes('connexion retrouvée')){
+      shortStatus.textContent='Sync…';
+      indicator.textContent='↻';
+    }else if(lower.includes('hors connexion')){
+      shortStatus.textContent='Hors ligne';
+      indicator.textContent='☁';
+    }else if(lower.includes('impossible')||lower.includes('erreur')){
+      shortStatus.textContent='À vérifier';
+      indicator.textContent='!';
+    }else if(lower.includes('lien envoyé')){
+      shortStatus.textContent='E-mail envoyé';
+      indicator.textContent='✉';
+    }else if(lower.includes('non connecté')){
+      shortStatus.textContent='Compte';
+      indicator.textContent='☁';
+    }else{
+      shortStatus.textContent='Compte';
+      indicator.textContent='☁';
+    }
   }
 
   function getLocalData(){
