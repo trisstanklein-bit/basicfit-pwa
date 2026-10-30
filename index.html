@@ -117,6 +117,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .load{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--label-2);font-size:13px}
 .load input{width:76px;min-height:44px;background:var(--surface-2);border:0;border-radius:10px;color:var(--label);padding:8px;text-align:center;font-variant-numeric:tabular-nums}
 .load:after{content:"kg";color:var(--label-2);margin-left:-3px}
+.load-adjust{display:flex;align-items:center;gap:6px;margin-left:auto}
+.load-adjust button{width:40px;height:44px;border:0;border-radius:12px;background:var(--surface-2);color:var(--accent);font-size:22px;font-weight:650;line-height:1}
+.load-adjust .load{margin-left:0}
+.load-adjust .load-value{min-width:44px;text-align:center;font-size:12px;color:var(--label-2)}
+.load-help{font-size:11px;color:var(--label-2);margin:8px 0 0}
+
 .how{margin-top:12px;border-top:1px solid var(--separator);padding-top:9px}
 .how summary{color:var(--label-2);font-size:13px;font-weight:600;cursor:pointer;min-height:30px;display:flex;align-items:center;justify-content:space-between;list-style:none}
 .how summary::-webkit-details-marker{display:none}
@@ -366,6 +372,7 @@ store.sets=store.sets||{};
 store.load=store.load||{};
 store.logs=store.logs||{};
 store.hist=store.hist||{};
+store.seriesLoad=store.seriesLoad||{};
 
 function save(){try{localStorage.setItem('basicfit-v1',JSON.stringify(store))}catch(e){}}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -383,6 +390,31 @@ function setLoad(name,date,v){
   if(v)h[date]=v;else delete h[date];
   if(!Object.keys(h).length)delete store.hist[name];
   var ds=loadDates(name);store.load[name]=ds.length?store.hist[name][ds[ds.length-1]]:''
+}
+function getSeriesLoad(day,i,n){
+  var key=setKey(day,i,n);
+  if(Object.prototype.hasOwnProperty.call(store.seriesLoad,key))return store.seriesLoad[key];
+  return getLoad(day.ex[i][0],activeDate());
+}
+function currentSeriesIndex(day,i){
+  for(var n=0;n<day.ex[i][1];n++){
+    if(!store.sets[setKey(day,i,n)])return n;
+  }
+  return Math.max(0,day.ex[i][1]-1);
+}
+function applyLoadFromSeries(day,i,start,value){
+  var name=day.ex[i][0],date=activeDate(),oldBase=getLoad(name,date);
+  store.seriesLoad=store.seriesLoad||{};
+  // Figer les charges des séries précédentes avant de changer la charge de référence.
+  for(var n=0;n<day.ex[i][1];n++){
+    var key=setKey(day,i,n);
+    if(!Object.prototype.hasOwnProperty.call(store.seriesLoad,key)){
+      store.seriesLoad[key]=oldBase;
+    }
+    if(n>=start)store.seriesLoad[key]=String(value).trim();
+  }
+  setLoad(name,date,value);
+  save();
 }
 function lastBefore(name,date){
   var ds=loadDates(name).filter(function(k){return k<date});
@@ -431,8 +463,26 @@ function renderSession(){armed=false;
       sets.appendChild(b)
     }
     controls.appendChild(sets);
+
+    var startSeries=currentSeriesIndex(cur,i);
+    var adjust=el('div','load-adjust');
+    var minus=el('button',null,'−'),plus=el('button',null,'+');
+    minus.type=plus.type='button';
+    minus.setAttribute('aria-label','Diminuer la charge de 2,5 kg à partir de la série '+(startSeries+1));
+    plus.setAttribute('aria-label','Augmenter la charge de 2,5 kg à partir de la série '+(startSeries+1));
     var lab=el('label','load','Charge'),inp=document.createElement('input'),hint=el('p','hint');
-    inp.type='text';inp.inputMode='decimal';inp.placeholder='kg';inp.value=getLoad(x[0],activeDate());
+    inp.type='text';inp.inputMode='decimal';inp.placeholder='kg';inp.value=getSeriesLoad(cur,i,startSeries)||'';
+    const applyInput=()=>applyLoadFromSeries(cur,i,startSeries,inp.value);
+    const adjustBy=delta=>{
+      var current=numLoad(inp.value);
+      if(current===null)current=0;
+      var next=Math.max(0,Math.round((current+delta)*100)/100);
+      inp.value=fmtNum(next);
+      applyInput();
+      paintHint();
+    };
+    minus.addEventListener('click',()=>adjustBy(-2.5));
+    plus.addEventListener('click',()=>adjustBy(2.5));
     const paintHint=function(){
       const prev=lastBefore(x[0],activeDate());
       hint.hidden=!prev;
@@ -443,8 +493,12 @@ function renderSession(){armed=false;
       const d=diffLoad(inp.value,prev.value);
       if(d!==null)hint.appendChild(document.createTextNode(' · '+d))
     };
-    inp.addEventListener('input',()=>{setLoad(x[0],activeDate(),inp.value);paintHint();save()});
-    paintHint();lab.appendChild(inp);controls.appendChild(lab);card.appendChild(controls);card.appendChild(hint);card.appendChild(howMenu(x[0],x[6],x[7]==='en'));
+    inp.addEventListener('change',()=>{applyInput();paintHint()});
+    inp.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();inp.blur()}});
+    paintHint();lab.appendChild(inp);adjust.appendChild(minus);adjust.appendChild(lab);adjust.appendChild(plus);
+    controls.appendChild(adjust);card.appendChild(controls);
+    card.appendChild(el('p','load-help','À partir de la série '+(startSeries+1)+' · les séries précédentes restent inchangées.'));
+    card.appendChild(hint);card.appendChild(howMenu(x[0],x[6],x[7]==='en'));
     if(Array.from({length:x[1]},(_,n)=>store.sets[setKey(cur,i,n)]).every(Boolean))card.classList.add('done');root.appendChild(card)
   });
   var cc=el('section','exercise circuit');cc.appendChild(el('h3','ex-title','Circuit abdos · '+CIRCUIT.rounds+' tours'));cc.appendChild(el('p','note',CIRCUIT.intro));
@@ -650,7 +704,8 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
       sets:Object.assign({},base.sets||{},changes.sets||{}),
       load:Object.assign({},base.load||{},changes.load||{}),
       logs:Object.assign({},base.logs||{},changes.logs||{}),
-      hist:mergeHist(base.hist||{},changes.hist||{})
+      hist:mergeHist(base.hist||{},changes.hist||{}),
+      seriesLoad:Object.assign({},base.seriesLoad||{},changes.seriesLoad||{})
     };
   }
 
@@ -726,6 +781,7 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
       store.load=finalData.load;
       store.logs=finalData.logs;
       store.hist=finalData.hist;
+      store.seriesLoad=finalData.seriesLoad||{};
 
       originalSave();
 
