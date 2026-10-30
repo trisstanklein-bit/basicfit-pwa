@@ -1,4 +1,4 @@
-const CACHE_NAME = "setly-pwa-v10";
+const CACHE_NAME = "setly-pwa-v9";
 
 const APP_SHELL = [
   "./",
