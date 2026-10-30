@@ -1,11 +1,13 @@
-const CACHE_NAME = "basicfit-pwa-v3";
+const CACHE_NAME = "basicfit-pwa-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./icon-180.png",
+  "./icon-maskable-512.png"
 ];
 
 self.addEventListener("install", (event) => {

@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#11141c"/>
-  <rect x="42" y="42" width="428" height="428" rx="92" fill="#1d2637"/>
-  <path d="M112 205h45v-40h42v40h114v-40h42v40h45v42h-45v42h-42v-42H199v42h-42v-42h-45z" fill="#78a2ff"/>
-  <path d="M112 307h288v34H112z" fill="#ffffff" opacity=".92"/>
-  <text x="256" y="405" text-anchor="middle" font-family="Arial,sans-serif" font-size="54" font-weight="700" letter-spacing="4" fill="#ffffff">BF</text>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#243049"/>
+      <stop offset="1" stop-color="#161d2c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#g)"/>
+  <g transform="translate(256 256) scale(1.08) translate(-256 -285)">
+    <path d="M112 205h45v-40h42v40h114v-40h42v40h45v42h-45v42h-42v-42H199v42h-42v-42h-45z" fill="#78a2ff"/>
+    <path d="M112 307h288v34H112z" fill="#ffffff" opacity=".92"/>
+    <text x="256" y="405" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="700" letter-spacing="4" fill="#ffffff">BF</text>
+  </g>
 </svg>

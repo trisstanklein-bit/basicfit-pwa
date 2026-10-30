@@ -2,19 +2,26 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101114">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BasicFit">
 <link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
+<link rel="apple-touch-icon" sizes="1024x1024" href="./icon-1024.png">
 <title>BasicFit · Training</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 :root{color-scheme:dark;--bg:#101114;--panel:#191b20;--panel2:#202329;--line:#2b2e36;--text:#f4f5f6;--muted:#9298a3;--lime:#c7f36b;--lime2:#a9d94f;--red:#ff7777;--radius:19px}
 *{box-sizing:border-box}
+html,body{touch-action:pan-x pan-y;overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--text);font:15px 'DM Sans',-apple-system,sans-serif;line-height:1.45;padding:env(safe-area-inset-top) 0 calc(92px + env(safe-area-inset-bottom))}
 button,input{font:inherit}
+input{font-size:16px;-webkit-user-select:text;user-select:text}
 button{cursor:pointer}
 .app{max-width:720px;margin:auto;padding:0 18px}
 .top{display:flex;align-items:center;justify-content:space-between;padding:20px 0 16px}
@@ -107,6 +114,20 @@ button{cursor:pointer}
 #cloudSetPwd{margin:10px 0}
 .linkbtn{display:block;background:none;border:0;color:var(--lime);font-size:12px;text-align:left;padding:10px 0 2px}
 #cloudEmail,#cloudPassword,#cloudNewPassword{width:100%;padding:12px;background:#111318;border:1px solid #3a3f49;border-radius:10px;color:white;margin:8px 0}
+.hint{font-size:12px;color:var(--muted);margin:10px 0 0}
+.hint b{color:var(--lime);font-weight:700}
+details.lh{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:10px 0}
+details.lh summary{display:flex;justify-content:space-between;gap:10px;align-items:center;cursor:pointer;list-style:none}
+details.lh summary::-webkit-details-marker{display:none}
+details.lh summary span{font-size:14px;font-weight:600;min-width:0}
+details.lh summary b{white-space:nowrap}
+details.lh summary b i{font-style:normal;font-size:11px;color:var(--lime);margin-left:6px}
+.lbars{display:flex;align-items:end;gap:8px;height:92px;margin-top:14px}
+.lbars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;height:100%;gap:4px;min-width:0}
+.lbars i{display:block;width:100%;max-width:30px;background:#56683a;border-radius:6px 6px 2px 2px;min-height:4px}
+.lbars div:last-child i{background:var(--lime)}
+.lbars em{font-style:normal;font-size:10px;font-weight:700}
+.lbars small{font-size:9px;color:var(--muted);white-space:nowrap}
 @media(max-width:380px){.brand{font-size:16px}.cloud-toggle{padding:7px}.date{font-size:10px}}
 @media(min-width:600px){.app{padding:0 26px}.hero-card{padding:25px}.timer{max-width:680px;margin:auto;left:0;right:0}}
 </style>
@@ -213,6 +234,11 @@ button{cursor:pointer}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* Bloque le zoom par pincement et le double-tap : comportement d'application */
+['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault()},{passive:false})});
+document.addEventListener('touchmove',function(e){if(e.touches.length>1)e.preventDefault()},{passive:false});
+</script>
+<script>
 var WARM = [
   "3 min de rameur ou de vélo léger",
   "Cercles d'épaules et rotations externes à l'élastique ou à la poulie basse : 2 × 15",
@@ -273,6 +299,7 @@ try{store=JSON.parse(localStorage.getItem('basicfit-v1')||'{}')}catch(e){}
 store.sets=store.sets||{};
 store.load=store.load||{};
 store.logs=store.logs||{};
+store.hist=store.hist||{};
 
 function save(){try{localStorage.setItem('basicfit-v1',JSON.stringify(store))}catch(e){}}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -280,6 +307,24 @@ function dayDate(day){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()
 function activeDate(){return dateKey(dayDate(cur))}
 function setKey(day,i,n){return activeDate()+':'+day.id+':'+i+':'+n}
 function roundKey(day,n){return activeDate()+':'+day.id+':c:'+n}
+function numLoad(v){var n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n}
+function fmtNum(n){return String(Math.round(n*100)/100).replace('.',',')}
+function fmtDate(k){return new Date(k+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}
+function loadDates(name){var h=store.hist[name]||{};return Object.keys(h).filter(function(k){return h[k]}).sort()}
+function getLoad(name,date){return (store.hist[name]&&store.hist[name][date])||''}
+function setLoad(name,date,v){
+  v=String(v).trim();var h=store.hist[name]||(store.hist[name]={});
+  if(v)h[date]=v;else delete h[date];
+  if(!Object.keys(h).length)delete store.hist[name];
+  var ds=loadDates(name);store.load[name]=ds.length?store.hist[name][ds[ds.length-1]]:''
+}
+function lastBefore(name,date){
+  var ds=loadDates(name).filter(function(k){return k<date});
+  if(ds.length)return{date:ds[ds.length-1],value:store.hist[name][ds[ds.length-1]]};
+  if(!store.hist[name]&&store.load[name])return{date:null,value:store.load[name]};
+  return null
+}
+function diffLoad(a,b){var x=numLoad(a),y=numLoad(b);if(x===null||y===null)return null;var d=x-y;if(d===0)return 'identique';return (d>0?'+':'')+fmtNum(d)+' kg'}
 function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function host(u){try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return u}}
 function restSeconds(t){var m=/(\d+)\s*min/.exec(t);if(m)return +m[1]*60;var s=/(\d+)\s*s/.exec(t);return s?+s[1]:60}
@@ -311,7 +356,20 @@ function renderSession(){armed=false;
       sets.appendChild(b)
     }
     controls.appendChild(sets);
-    var lab=el('label','load','Charge'),inp=document.createElement('input');inp.type='text';inp.inputMode='decimal';inp.placeholder='kg';inp.value=store.load[x[0]]||'';inp.addEventListener('input',()=>{store.load[x[0]]=inp.value;save()});lab.appendChild(inp);controls.appendChild(lab);card.appendChild(controls);card.appendChild(howMenu(x[0],x[6],x[7]==='en'));
+    var lab=el('label','load','Charge'),inp=document.createElement('input'),hint=el('p','hint');
+    inp.type='text';inp.inputMode='decimal';inp.placeholder='kg';inp.value=getLoad(x[0],activeDate());
+    const paintHint=function(){
+      const prev=lastBefore(x[0],activeDate());
+      hint.hidden=!prev;
+      if(!prev)return;
+      hint.textContent='';
+      hint.appendChild(document.createTextNode(prev.date?'Dernière fois ('+fmtDate(prev.date)+') : ':'Dernière fois : '));
+      hint.appendChild(el('b',null,prev.value+' kg'));
+      const d=diffLoad(inp.value,prev.value);
+      if(d!==null)hint.appendChild(document.createTextNode(' · '+d))
+    };
+    inp.addEventListener('input',()=>{setLoad(x[0],activeDate(),inp.value);paintHint();save()});
+    paintHint();lab.appendChild(inp);controls.appendChild(lab);card.appendChild(controls);card.appendChild(hint);card.appendChild(howMenu(x[0],x[6],x[7]==='en'));
     if(Array.from({length:x[1]},(_,n)=>store.sets[setKey(cur,i,n)]).every(Boolean))card.classList.add('done');root.appendChild(card)
   });
   var cc=el('section','exercise circuit');cc.appendChild(el('h3','ex-title','Circuit abdos · '+CIRCUIT.rounds+' tours'));cc.appendChild(el('p','note',CIRCUIT.intro));
@@ -340,13 +398,36 @@ function renderHistory(){
   if(!logs.length){root.appendChild(el('div','empty','Tes séances terminées apparaîtront ici. Valide toutes les séries d’une séance pour l’enregistrer.'));return}
   logs.forEach(x=>{var p=el('div','panel history-item'),l=el('div');l.appendChild(el('strong',null,x.title));l.appendChild(el('small',null,new Date(x.date+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})));p.appendChild(l);p.appendChild(el('b',null,x.sets+' séries'));root.appendChild(p)})
 }
+function renderLoads(){
+  var list=document.getElementById('loadsList');list.innerHTML='';
+  var names=Object.keys(store.hist).filter(function(n){return loadDates(n).length});
+  Object.keys(store.load).forEach(function(n){if(store.load[n]&&names.indexOf(n)<0)names.push(n)});
+  if(!names.length){list.appendChild(el('div','empty','Tes charges enregistrées apparaîtront ici.'));return}
+  names.forEach(function(name){
+    var ds=loadDates(name),d=el('details','lh'),s=el('summary'),right=el('b',null,'');
+    s.appendChild(el('span',null,name));
+    if(!ds.length){right.textContent=store.load[name]+' kg';s.appendChild(right);d.appendChild(s);list.appendChild(d);return}
+    var h=store.hist[name],last=h[ds[ds.length-1]];
+    right.textContent=last+' kg';
+    if(ds.length>1){var df=diffLoad(last,h[ds[ds.length-2]]);if(df&&df!=='identique')right.appendChild(el('i',null,df))}
+    s.appendChild(right);d.appendChild(s);
+    var shown=ds.slice(-8),vals=shown.map(function(k){return numLoad(h[k])});
+    var max=Math.max.apply(null,vals.filter(function(v){return v!==null}).concat([1]));
+    var bars=el('div','lbars');
+    shown.forEach(function(k,i){
+      var col=document.createElement('div'),b=document.createElement('i'),dt=new Date(k+'T00:00:00');
+      col.appendChild(el('em',null,h[k]));
+      b.style.height=(vals[i]===null?4:Math.max(4,Math.round(vals[i]/max*44)))+'px';
+      col.appendChild(b);col.appendChild(el('small',null,dt.getDate()+'/'+(dt.getMonth()+1)));bars.appendChild(col)
+    });
+    d.appendChild(bars);list.appendChild(d)
+  })
+}
 function renderProgress(){
   var logs=Object.values(store.logs);document.getElementById('progressSessions').textContent=logs.length;document.getElementById('progressSets').textContent=Object.keys(store.sets).length;
   var chart=document.getElementById('activityChart');chart.innerHTML='';
   for(var i=6;i>=0;i--){var d=new Date();d.setDate(d.getDate()-i);var k=dateKey(d);var n=logs.filter(x=>x.date===k).length;var col=el('div','col'),bar=document.createElement('i');bar.style.height=(n?100:4)+'%';col.appendChild(bar);col.appendChild(el('small',null,['D','L','M','M','J','V','S'][d.getDay()]));chart.appendChild(col)}
-  var list=document.getElementById('loadsList');list.innerHTML='';var entries=Object.entries(store.load).filter(x=>x[1]);
-  if(!entries.length)list.appendChild(el('div','empty','Tes charges enregistrées apparaîtront ici.'));
-  else entries.forEach(([name,value])=>{var p=el('div','panel history-item');p.appendChild(el('span',null,name));p.appendChild(el('b',null,value+' kg'));list.appendChild(p)})
+  renderLoads()
 }
 var tEl=document.getElementById('timer'),tTime=document.getElementById('timerTime'),tLab=document.getElementById('timerLabel'),tInt=null,tEnd=0;
 function fmt(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
@@ -450,11 +531,20 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
     if(activeTab==='progress')renderProgress();
   }
 
+  function mergeHist(a,b){
+    const out={};
+    Object.keys(a).concat(Object.keys(b)).forEach(function(name){
+      out[name]=Object.assign({},a[name]||{},b[name]||{});
+    });
+    return out;
+  }
+
   function mergeData(base,changes){
     return {
       sets:Object.assign({},base.sets||{},changes.sets||{}),
       load:Object.assign({},base.load||{},changes.load||{}),
-      logs:Object.assign({},base.logs||{},changes.logs||{})
+      logs:Object.assign({},base.logs||{},changes.logs||{}),
+      hist:mergeHist(base.hist||{},changes.hist||{})
     };
   }
 
@@ -529,6 +619,7 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
       store.sets=finalData.sets;
       store.load=finalData.load;
       store.logs=finalData.logs;
+      store.hist=finalData.hist;
 
       originalSave();
 
