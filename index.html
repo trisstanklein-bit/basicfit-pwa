@@ -81,7 +81,7 @@ button{cursor:pointer}
 .note{font-size:12px;color:var(--muted);margin:8px 0 13px}
 .ex-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .sets{display:flex;gap:7px}
-.set{width:38px;height:38px;border-radius:12px;border:1px solid #414650;background:var(--panel2);color:var(--muted);font-weight:800}
+.set{width:44px;height:44px;border-radius:12px;border:1px solid #414650;background:var(--panel2);color:var(--muted);font-weight:800}
 .set[aria-pressed=true]{background:var(--lime);border-color:var(--lime);color:#171b11}
 .load{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}
 .load input{width:68px;background:#111318;border:1px solid #3a3f49;border-radius:9px;color:var(--text);padding:8px;text-align:center}
@@ -104,7 +104,9 @@ button{cursor:pointer}
 .chart i{display:block;width:100%;max-width:34px;background:#56683a;border-radius:7px 7px 2px 2px;min-height:3px}
 .chart small{font-size:9px;color:var(--muted)}
 .foot{color:var(--muted);font-size:11px;margin:18px 0 8px;text-align:center}
-#cloudEmail{width:100%;padding:12px;background:#111318;border:1px solid #3a3f49;border-radius:10px;color:white;margin:8px 0}
+#cloudSetPwd{margin:10px 0}
+.linkbtn{display:block;background:none;border:0;color:var(--lime);font-size:12px;text-align:left;padding:10px 0 2px}
+#cloudEmail,#cloudPassword,#cloudNewPassword{width:100%;padding:12px;background:#111318;border:1px solid #3a3f49;border-radius:10px;color:white;margin:8px 0}
 @media(max-width:380px){.brand{font-size:16px}.cloud-toggle{padding:7px}.date{font-size:10px}}
 @media(min-width:600px){.app{padding:0 26px}.hero-card{padding:25px}.timer{max-width:680px;margin:auto;left:0;right:0}}
 </style>
@@ -130,7 +132,14 @@ button{cursor:pointer}
   </p>
   <div id="cloudLogin">
     <input id="cloudEmail" type="email" placeholder="Ton adresse e-mail" autocomplete="email">
-    <button class="primary" id="cloudLoginBtn" type="button">Recevoir mon lien de connexion</button>
+    <input id="cloudPassword" type="password" placeholder="Mot de passe" autocomplete="current-password">
+    <button class="primary" id="cloudLoginBtn" type="button">Se connecter</button>
+    <button class="linkbtn" id="cloudLinkBtn" type="button">Première connexion ou mot de passe oublié ? Recevoir un lien par e-mail</button>
+  </div>
+  <div id="cloudSetPwd" hidden>
+    <p class="muted" style="font-size:12px;margin:0 0 4px">Définis un mot de passe pour te connecter directement dans l'app, sur chaque appareil.</p>
+    <input id="cloudNewPassword" type="password" placeholder="Nouveau mot de passe (8 caractères minimum)" autocomplete="new-password">
+    <button class="primary" id="cloudSetPwdBtn" type="button">Enregistrer le mot de passe</button>
   </div>
   <button id="cloudLogout" type="button" hidden style="background:none;border:1px solid #414650;color:white;border-radius:10px;padding:9px 12px">
     Se déconnecter
@@ -283,7 +292,7 @@ function switchTab(tab){activeTab=tab;document.querySelectorAll('.view').forEach
 document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 function makeWeek(target){var box=document.getElementById(target);box.innerHTML='';DAYS.forEach(d=>{var b=el('button',d===cur?'active':'');b.innerHTML='<b>'+d.short+'</b><small>'+d.tag+'</small>';b.addEventListener('click',()=>{cur=d;renderSession();if(target==='homeWeek')switchTab('sessions')});box.appendChild(b)})}
 function howMenu(name,url,en){var d=el('details','how');d.appendChild(el('summary',null,'Comment faire'));var links=el('div','links');var a=el('a',null,'Explication de l’exercice · '+host(url)+(en?' · anglais':''));a.href=url;a.target='_blank';a.rel='noopener';links.appendChild(a);var y=el('a',null,'Vidéos de démonstration · YouTube');y.href='https://www.youtube.com/results?search_query='+encodeURIComponent(name.replace(/\s*\(.*?\)/g,'')+' exécution');y.target='_blank';y.rel='noopener';links.appendChild(y);d.appendChild(links);return d}
-function renderSession(){
+function renderSession(){armed=false;
   makeWeek('sessionWeek');
   var root=document.getElementById('sessionContent');root.innerHTML='';
   var c=countDone(cur),head=el('div','session-head'),left=el('div');
@@ -494,12 +503,25 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
        * Cela évite qu'une ancienne version du cloud écrase
        * les changements faits hors connexion sur l'iPhone.
        */
+      /*
+       * - Modifications en attente : la copie locale complète gagne,
+       *   donc un décochage ou une remise à zéro est bien envoyé.
+       * - Pas de modification en attente : le cloud fait foi.
+       * - Première synchronisation de cet appareil : fusion des deux.
+       */
+      const SYNCED_KEY='basicfit-synced-v1';
+      const hasCloud=!!result.data;
+      const syncedBefore=localStorage.getItem(SYNCED_KEY)==='1';
       let finalData;
 
       if(pendingData){
-        finalData=mergeData(cloudData,pendingData);
-      }else{
+        finalData=mergeData({},pendingData);
+      }else if(!hasCloud){
+        finalData=mergeData({},localData);
+      }else if(!syncedBefore){
         finalData=mergeData(localData,cloudData);
+      }else{
+        finalData=mergeData({},cloudData);
       }
 
       applyingCloud=true;
@@ -523,6 +545,8 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
         });
 
       if(upload.error)throw upload.error;
+
+      try{localStorage.setItem(SYNCED_KEY,'1')}catch(e){}
 
       /*
        * On efface les données en attente uniquement si
@@ -606,7 +630,7 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
   /*
    * Connexion par lien envoyé par e-mail.
    */
-  document.getElementById('cloudLoginBtn').addEventListener('click',async function(){
+  document.getElementById('cloudLinkBtn').addEventListener('click',async function(){
     const email=document.getElementById('cloudEmail').value.trim();
 
     if(!email){
@@ -632,6 +656,53 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
   });
 
   /*
+   * Connexion par e-mail et mot de passe, directement dans l'app.
+   * La session reste ensuite enregistrée dans cette app.
+   */
+  document.getElementById('cloudLoginBtn').addEventListener('click',async function(){
+    const email=document.getElementById('cloudEmail').value.trim();
+    const password=document.getElementById('cloudPassword').value;
+
+    if(!email||!password){
+      showStatus('Entre ton adresse e-mail et ton mot de passe.');
+      return;
+    }
+
+    showStatus('Connexion…');
+
+    const {error}=await client.auth.signInWithPassword({email:email,password:password});
+
+    if(error){
+      showStatus(/invalid login/i.test(error.message)?'Erreur : e-mail ou mot de passe incorrect.':'Erreur : '+error.message);
+      return;
+    }
+
+    document.getElementById('cloudPassword').value='';
+  });
+
+  /*
+   * Définir ou changer le mot de passe (une fois connecté).
+   */
+  document.getElementById('cloudSetPwdBtn').addEventListener('click',async function(){
+    const password=document.getElementById('cloudNewPassword').value;
+
+    if(password.length<8){
+      showStatus('Erreur : le mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+
+    const {error}=await client.auth.updateUser({password:password});
+
+    if(error){
+      showStatus('Erreur : '+error.message);
+      return;
+    }
+
+    document.getElementById('cloudNewPassword').value='';
+    showStatus('Mot de passe enregistré. Tu peux maintenant te connecter avec ton e-mail et ce mot de passe.');
+  });
+
+  /*
    * Déconnexion.
    */
   logout.addEventListener('click',async function(){
@@ -651,6 +722,7 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
 
       login.hidden=true;
       logout.hidden=false;
+      document.getElementById('cloudSetPwd').hidden=false;
 
       showStatus('Connexion réussie. Synchronisation…');
 
@@ -663,6 +735,7 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
 
       login.hidden=false;
       logout.hidden=true;
+      document.getElementById('cloudSetPwd').hidden=true;
 
       showStatus('Non connecté · Données conservées sur cet appareil.');
     }
