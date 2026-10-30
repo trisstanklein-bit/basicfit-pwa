@@ -345,7 +345,10 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
   const SUPABASE_URL='https://pnhhtjdptbuxvlrdmkky.supabase.co';
   const SUPABASE_KEY='sb_publishable_gwjUz2xnmPAVDGI-QdzcJg_8xWHSf8Q';
   const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
   const originalSave=window.save;
+  const PENDING_KEY='basicfit-pending-v1';
+
   let syncTimer=null;
   let syncing=false;
   let applyingCloud=false;
@@ -355,89 +358,215 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
   const login=document.getElementById('cloudLogin');
   const logout=document.getElementById('cloudLogout');
 
-  function showStatus(message){status.textContent=message}
+  function showStatus(message){
+    status.textContent=message;
+  }
+
+  function getLocalData(){
+    return JSON.parse(localStorage.getItem('basicfit-v1')||'{}');
+  }
+
+  function getPendingData(){
+    try{
+      const data=localStorage.getItem(PENDING_KEY);
+      return data?JSON.parse(data):null;
+    }catch(error){
+      console.error('Erreur de lecture des données en attente :',error);
+      return null;
+    }
+  }
+
+  function savePendingData(){
+    try{
+      localStorage.setItem(PENDING_KEY,JSON.stringify(store));
+    }catch(error){
+      console.error('Impossible de conserver les données en attente :',error);
+    }
+  }
 
   function refreshViews(){
     renderHome();
     renderSession();
+
     if(activeTab==='history')renderHistory();
     if(activeTab==='progress')renderProgress();
   }
 
-  function mergeData(local,cloud){
+  function mergeData(base,changes){
     return {
-      sets:Object.assign({},local.sets||{},cloud.sets||{}),
-      load:Object.assign({},local.load||{},cloud.load||{}),
-      logs:Object.assign({},local.logs||{},cloud.logs||{})
+      sets:Object.assign({},base.sets||{},changes.sets||{}),
+      load:Object.assign({},base.load||{},changes.load||{}),
+      logs:Object.assign({},base.logs||{},changes.logs||{})
     };
   }
 
+  function scheduleSync(delay){
+    clearTimeout(syncTimer);
+
+    if(!activeUser)return;
+
+    syncTimer=setTimeout(function(){
+      if(navigator.onLine){
+        syncWithCloud(activeUser);
+      }else{
+        showStatus('Hors connexion · Modifications conservées sur cet appareil.');
+      }
+    },delay||1000);
+  }
+
   async function syncWithCloud(user){
-    if(syncing)return;
+    if(syncing||!user)return;
+
+    if(!navigator.onLine){
+      showStatus('Hors connexion · Modifications conservées sur cet appareil.');
+      return;
+    }
+
     syncing=true;
-    applyingCloud=true;
+
     try{
-      const localData=JSON.parse(localStorage.getItem('basicfit-v1')||'{}');
-      const result=await client.from('workout_data').select('data').eq('user_id',user.id).maybeSingle();
+      showStatus('Synchronisation en cours…');
+
+      const localData=getLocalData();
+      const pendingData=getPendingData();
+
+      const result=await client
+        .from('workout_data')
+        .select('data')
+        .eq('user_id',user.id)
+        .maybeSingle();
+
       if(result.error)throw result.error;
 
+      const cloudData=result.data?.data||{};
+
+      /*
+       * Les modifications locales en attente sont prioritaires.
+       * Cela évite qu'une ancienne version du cloud écrase
+       * les changements faits hors connexion sur l'iPhone.
+       */
       let finalData;
-      if(!result.data){
-        finalData=mergeData(localData,{});
+
+      if(pendingData){
+        finalData=mergeData(cloudData,pendingData);
       }else{
-        finalData=mergeData(localData,result.data.data||{});
+        finalData=mergeData(localData,cloudData);
       }
+
+      applyingCloud=true;
 
       store.sets=finalData.sets;
       store.load=finalData.load;
       store.logs=finalData.logs;
+
       originalSave();
 
-      const upload=await client.from('workout_data').upsert({
-        user_id:user.id,
-        data:finalData,
-        updated_at:new Date().toISOString()
-      });
+      applyingCloud=false;
+
+      const snapshot=JSON.stringify(finalData);
+
+      const upload=await client
+        .from('workout_data')
+        .upsert({
+          user_id:user.id,
+          data:finalData,
+          updated_at:new Date().toISOString()
+        });
+
       if(upload.error)throw upload.error;
+
+      /*
+       * On efface les données en attente uniquement si
+       * aucune nouvelle modification n'a été faite pendant
+       * la synchronisation.
+       */
+      const currentPending=localStorage.getItem(PENDING_KEY);
+
+      if(currentPending){
+        const parsedPending=JSON.parse(currentPending);
+
+        if(JSON.stringify(parsedPending)===JSON.stringify(store)){
+          localStorage.removeItem(PENDING_KEY);
+        }
+      }
 
       showStatus('Synchronisé avec ton compte · '+user.email);
       refreshViews();
+
+      /*
+       * Si une modification est arrivée pendant l'envoi,
+       * on programme une nouvelle synchronisation.
+       */
+      if(localStorage.getItem(PENDING_KEY)){
+        scheduleSync(500);
+      }
+
     }catch(error){
       console.error('Erreur de synchronisation :',error);
-      showStatus('Erreur de synchronisation : '+error.message);
+
+      showStatus(
+        navigator.onLine
+          ? 'Synchronisation impossible · Modifications conservées sur cet appareil.'
+          : 'Hors connexion · Modifications conservées sur cet appareil.'
+      );
+
     }finally{
       applyingCloud=false;
       syncing=false;
     }
   }
 
+  /*
+   * Sauvegarde locale immédiate + conservation d'une copie
+   * à envoyer au cloud dès que possible.
+   */
   window.save=function(){
     originalSave();
+
     if(activeUser&&!applyingCloud){
-      clearTimeout(syncTimer);
-      syncTimer=setTimeout(async function(){
-        if(!activeUser)return;
-        try{
-          const result=await client.from('workout_data').upsert({
-            user_id:activeUser.id,
-            data:store,
-            updated_at:new Date().toISOString()
-          });
-          if(result.error)throw result.error;
-          showStatus('Synchronisé · '+activeUser.email);
-        }catch(error){
-          console.error(error);
-          showStatus('Erreur de sauvegarde : '+error.message);
-        }
-      },1000);
+      savePendingData();
+
+      if(navigator.onLine){
+        scheduleSync(1000);
+      }else{
+        showStatus('Hors connexion · Modifications conservées sur cet appareil.');
+      }
     }
   };
 
+  /*
+   * Nouvelle tentative dès que la connexion revient.
+   */
+  window.addEventListener('online',function(){
+    if(activeUser){
+      showStatus('Connexion retrouvée · Synchronisation…');
+      scheduleSync(300);
+    }
+  });
+
+  /*
+   * Nouvelle tentative lorsque l'application revient
+   * au premier plan sur l'iPhone.
+   */
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible'&&activeUser&&navigator.onLine){
+      scheduleSync(300);
+    }
+  });
+
+  /*
+   * Connexion par lien envoyé par e-mail.
+   */
   document.getElementById('cloudLoginBtn').addEventListener('click',async function(){
     const email=document.getElementById('cloudEmail').value.trim();
-    if(!email){showStatus('Entre ton adresse e-mail.');return}
+
+    if(!email){
+      showStatus('Entre ton adresse e-mail.');
+      return;
+    }
 
     showStatus('Envoi du lien de connexion…');
+
     const {error}=await client.auth.signInWithOtp({
       email:email,
       options:{
@@ -449,28 +578,47 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
       showStatus('Erreur : '+error.message);
       return;
     }
+
     showStatus('Lien envoyé ! Ouvre ta boîte mail et clique dessus pour te connecter.');
   });
 
+  /*
+   * Déconnexion.
+   */
   logout.addEventListener('click',async function(){
     const {error}=await client.auth.signOut();
-    if(error)showStatus('Erreur de déconnexion : '+error.message);
+
+    if(error){
+      showStatus('Erreur de déconnexion : '+error.message);
+    }
   });
 
+  /*
+   * Restauration de la session et synchronisation initiale.
+   */
   client.auth.onAuthStateChange(function(event,session){
     if(session&&session.user){
       activeUser=session.user;
+
       login.hidden=true;
       logout.hidden=false;
+
       showStatus('Connexion réussie. Synchronisation…');
-      setTimeout(function(){syncWithCloud(session.user)},0);
+
+      setTimeout(function(){
+        syncWithCloud(session.user);
+      },0);
+
     }else{
       activeUser=null;
+
       login.hidden=false;
       logout.hidden=true;
+
       showStatus('Non connecté · Données conservées sur cet appareil.');
     }
   });
+
 })();
 </script>
 </body>
