@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.1";
+var APP_VERSION = "2.2";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -210,7 +210,7 @@ function switchTab(tab) {
   if (tab === "progress") renderProgress();
   if (tab === "programs") renderPrograms();
   if (tab === "sessions") requestWake(); else releaseWake();
-  requestAnimationFrame(function () { window.scrollTo(0, tabScrollPositions[tab] || 0); });
+  window.scrollTo({ top: tabScrollPositions[tab] || 0, behavior: "instant" }); // immédiat : pas d'animation pendant que la page change de hauteur
 }
 
 function refreshAll() {

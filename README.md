@@ -9,7 +9,7 @@ Application web installable (iPhone, Mac, Android) pour suivre ses séries, ses 
 - Minuteur de repos automatique avec bip, vibration (selon l'appareil) et écran maintenu allumé pendant la séance.
 - Navigation par semaine : revoir ou compléter une séance passée, ou préparer la suivante.
 - Historique, records par exercice, charges regroupées par séance, graphique d'activité.
-- Onglet **Programmes** : plusieurs programmes, un seul actif à la fois. Ton programme d'origine (« Mon programme ») est verrouillé : on le duplique pour le modifier, ou on part de zéro. Séances, exercices, séries, répétitions, repos, RPE, notes et liens se saisissent à la main ; l'échauffement et le circuit d'abdos sont communs.
+- Onglet **Plans** : plusieurs programmes, un seul actif à la fois. Ton programme d'origine (« Mon programme ») est verrouillé : on le duplique pour le modifier, ou on part de zéro. Séances, exercices, séries, répétitions, repos, RPE, notes et liens se saisissent à la main ; l'échauffement et le circuit d'abdos sont communs.
 - Poids de corps avec courbe d'évolution.
 - Synchronisation Mac ↔ iPhone, fusion sans perte des modifications faites sur deux appareils.
 - Export / import JSON dans le panneau « Compte ».
@@ -54,7 +54,7 @@ Si `supabase.js` est absent, l'app tente de charger la bibliothèque depuis inte
 ## Mettre à jour l'app
 
 1. Remplace les fichiers modifiés dans GitHub.
-2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v14` devient `setly-pwa-v15`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
+2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v15` devient `setly-pwa-v16`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
 3. Ouvre l'app : un bandeau « Nouvelle version disponible » apparaît. Touche **Mettre à jour**.
 4. Vérifie la version affichée en bas du panneau « Compte » (bouton en haut à droite).
 
