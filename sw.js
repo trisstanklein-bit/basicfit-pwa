@@ -1,6 +1,6 @@
 /* Setly — service worker.
    Pour publier une nouvelle version : change simplement le numéro ci-dessous (ex. v10 -> v11). */
-const CACHE_NAME = "setly-pwa-v10";
+const CACHE_NAME = "setly-pwa-v11";
 
 /* Fichiers indispensables : si l'un manque, l'installation échoue et l'ancienne version reste active. */
 const APP_SHELL = [
