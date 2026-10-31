@@ -23,7 +23,7 @@ var CIRCUIT = {
   ]
 };
 
-var DAYS = [
+var DEFAULT_DAYS = [
   { id: "lundi", short: "Lun", dow: 1, tag: "Push A", title: "Push A · pecs, épaules, abdos", ex: [
     ["Développé couché haltères sur banc incliné (30°)", 4, "8–10", "2 min", "8", "Haut des pecs. Haltères indépendants, mêmes reps des deux côtés.", "https://www.fitadium.com/conseils/developpe-incline/"],
     ["Développé couché machine (Chest Press)", 3, "10–12", "90 s", "8–9", "Option : à un bras en commençant par la gauche.", "https://www.hingehealth.com/ca/fr/resources/articles/seated-chest-press/"],
@@ -58,10 +58,10 @@ var DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.0";
+var APP_VERSION = "2.1";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
-var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight"];
+var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
 var WEEK_MIN = -52, WEEK_MAX = 8;
 
 function $(id) { return document.getElementById(id); }
@@ -74,6 +74,8 @@ MAPS.forEach(function (k) { if (!store[k] || typeof store[k] !== "object") store
 /* Date de première utilisation : les séances antérieures ne sont jamais proposées « en retard ». */
 if (!store.meta.start) { store.meta.start = dateKey(new Date()); try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
 
+var DAYS = DEFAULT_DAYS; // programme actif (voir « Programmes » plus bas)
+
 var rev = 0;          // compteur de modifications locales (utilisé par la synchro)
 var afterSave = null; // crochet appelé après chaque sauvegarde (défini par sync.js)
 
@@ -85,6 +87,7 @@ function applyData(d) {
   MAPS.forEach(function (k) { store[k] = (d && d[k] && typeof d[k] === "object") ? d[k] : {}; });
   if (JSON.stringify(getData()) === before) return false;
   persist();
+  refreshProgram();
   refreshAll();
   return true;
 }
@@ -142,7 +145,8 @@ function diffLoad(a, b) {
 }
 
 /* ---------- Séries et séances ---------- */
-function setKey(date, day, i, n) { return date + ":" + day.id + ":" + i + ":" + n; }
+function exKey(day, i) { var x = day.ex[i]; return (x && x[8]) || i; } // programme d'origine : index, comme avant
+function setKey(date, day, i, n) { return date + ":" + day.id + ":" + exKey(day, i) + ":" + n; }
 function roundKey(date, day, n) { return date + ":" + day.id + ":c:" + n; }
 function warmKey(date, day) { return date + ":" + day.id; }
 
@@ -161,8 +165,20 @@ function isComplete(day, date) { var c = countDone(day, date); return c.done ===
 /* Met l'historique en phase avec l'état réel : séance complète = ajoutée, sinon retirée. */
 function updateLog(day, date) {
   var k = date + ":" + day.id;
-  if (isComplete(day, date)) store.logs[k] = { date: date, id: day.id, title: day.tag, sets: countDone(day, date).total };
-  else delete store.logs[k];
+  if (isComplete(day, date)) {
+    var log = { date: date, id: day.id, title: day.tag, sets: countDone(day, date).total };
+    if (day.p) { // programme personnalisé : on garde de quoi afficher la séance même si le programme est supprimé
+      log.prog = store.programs[day.p] ? store.programs[day.p].name : "";
+      log.ex = day.ex.map(function (x) { return x[0]; });
+    }
+    store.logs[k] = log;
+  } else delete store.logs[k];
+}
+
+/* Les séances antérieures à la première utilisation (ou à l'activation du programme) ne sont jamais « en retard ». */
+function lowerBound() {
+  var a = store.meta.start || "", b = store.meta["pstart:" + activeId()] || "";
+  return b > a ? b : a;
 }
 
 /* Prochaine séance : la première non terminée de la semaine en cours (jour prévu ou en retard),
@@ -170,7 +186,7 @@ function updateLog(day, date) {
 function nextSession() {
   for (var i = 0; i < DAYS.length; i++) {
     var dt = dateKey(dayDate(DAYS[i], 0));
-    if (dt < store.meta.start) continue;
+    if (dt < lowerBound()) continue;
     if (!isComplete(DAYS[i], dt)) return { day: DAYS[i], week: 0, date: dt };
   }
   return { day: DAYS[0], week: 1, date: dateKey(dayDate(DAYS[0], 1)) };
@@ -178,7 +194,7 @@ function nextSession() {
 
 /* ---------- État de l'interface ---------- */
 var cur = DAYS[0], viewWeek = 0, activeTab = "home", armed = false, ui = null;
-var tabScrollPositions = { home: 0, sessions: 0, history: 0, progress: 0 };
+var tabScrollPositions = { home: 0, sessions: 0, history: 0, progress: 0, programs: 0 };
 function curDate() { return dateKey(dayDate(cur, viewWeek)); }
 
 function switchTab(tab) {
@@ -192,6 +208,7 @@ function switchTab(tab) {
   if (tab === "home") renderHome();
   if (tab === "history") renderHistory();
   if (tab === "progress") renderProgress();
+  if (tab === "programs") renderPrograms();
   if (tab === "sessions") requestWake(); else releaseWake();
   requestAnimationFrame(function () { window.scrollTo(0, tabScrollPositions[tab] || 0); });
 }
@@ -201,18 +218,20 @@ function refreshAll() {
   refreshSession();
   if (activeTab === "history") renderHistory();
   if (activeTab === "progress") renderProgress();
+  if (activeTab === "programs" && !editor) renderPrograms();
 }
 
 /* ---------- Semaine ---------- */
 function makeWeek(target) {
   var box = $(target); box.innerHTML = "";
   var isHome = target === "homeWeek";
+  box.style.gridTemplateColumns = "repeat(" + Math.max(1, Math.min(DAYS.length, 4)) + ", minmax(0, 1fr))";
   DAYS.forEach(function (d) {
     var date = dateKey(dayDate(d, isHome ? 0 : viewWeek));
     var active = d === cur && (isHome ? viewWeek === 0 : true);
     var b = el("button", (active ? "active " : "") + (isComplete(d, date) ? "is-done" : ""));
     b.type = "button";
-    b.innerHTML = "<b>" + d.short + "</b><small>" + d.tag + "</small>";
+    b.appendChild(el("b", null, d.short)); b.appendChild(el("small", null, d.tag));
     b.addEventListener("click", function () {
       cur = d;
       if (isHome) viewWeek = 0;
@@ -239,8 +258,10 @@ function updateWeekNav() {
 function howMenu(name, url, en) {
   var d = el("details", "how"); d.appendChild(el("summary", null, "Comment faire"));
   var links = el("div", "links");
-  var a = el("a", null, "Explication de l’exercice · " + host(url) + (en ? " · anglais" : ""));
-  a.href = url; a.target = "_blank"; a.rel = "noopener"; links.appendChild(a);
+  if (url) {
+    var a = el("a", null, "Explication de l’exercice · " + host(url) + (en ? " · anglais" : ""));
+    a.href = url; a.target = "_blank"; a.rel = "noopener"; links.appendChild(a);
+  }
   var y = el("a", null, "Vidéos de démonstration · YouTube");
   y.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent(name.replace(/\s*\(.*?\)/g, "") + " exécution");
   y.target = "_blank"; y.rel = "noopener"; links.appendChild(y);
@@ -291,9 +312,11 @@ function buildSession() {
     var card = el("section", "exercise"); card.id = "ex" + i;
     card.appendChild(el("h3", "ex-title", x[0]));
     var meta = el("div", "meta");
-    meta.innerHTML = "<span>" + x[1] + " × " + x[2] + "</span><span>" + x[3] + " <small>repos</small></span><span>RPE " + x[4] + "</span>";
+    meta.appendChild(el("span", null, x[2] ? x[1] + " × " + x[2] : x[1] + (x[1] > 1 ? " séries" : " série")));
+    if (x[3]) { var restSpan = el("span", null, x[3] + " "); restSpan.appendChild(el("small", null, "repos")); meta.appendChild(restSpan); }
+    if (x[4]) meta.appendChild(el("span", null, "RPE " + x[4]));
     card.appendChild(meta);
-    card.appendChild(el("p", "note", x[5]));
+    if (x[5]) card.appendChild(el("p", "note", x[5]));
     var controls = el("div", "ex-controls"), sets = el("div", "sets"), o = { card: card, btns: [], name: x[0] };
 
     for (var n = 0; n < x[1]; n++) (function (n) {
@@ -419,7 +442,9 @@ function renderHome() {
   $("statSessions").textContent = logs.length;
   $("statSets").textContent = Object.keys(store.sets).filter(function (k) { return store.sets[k]; }).length;
   var mon = dateKey(mondayOf(0)), sun = dateKey(mondayOf(1));
-  var count = logs.filter(function (x) { return x.date >= mon && x.date < sun; }).length, goal = DAYS.length;
+  var ids = DAYS.map(function (d) { return d.id; });
+  var count = logs.filter(function (x) { return x.date >= mon && x.date < sun && ids.indexOf(x.id) >= 0; }).length, goal = DAYS.length;
+  $("weekGoalLabel").textContent = (activeId() === "default" ? "" : programName(activeId()) + " · ") + goal + (goal > 1 ? " séances" : " séance") + " / semaine";
   $("weekCount").textContent = count + " / " + goal;
   $("weekBar").style.width = Math.min(100, count * 100 / goal) + "%";
   $("weekRing").style.setProperty("--progress", Math.min(100, count * 100 / goal));
@@ -438,7 +463,7 @@ function renderHistory() {
     groups[monthKey].forEach(function (log) {
       var details = el("details", "history-entry"), summary = el("summary", "history-item");
       var left = el("div");
-      left.appendChild(el("strong", null, log.title)); left.appendChild(el("small", null, fmtLong(log.date)));
+      left.appendChild(el("strong", null, log.title)); left.appendChild(el("small", null, fmtLong(log.date) + (log.prog ? " · " + log.prog : "")));
       var right = el("div"); right.appendChild(el("small", null, log.sets + " séries"));
       var chevron = svgEl("svg");
       chevron.setAttribute("class", "history-chevron"); chevron.setAttribute("viewBox", "0 0 24 24"); chevron.setAttribute("fill", "none");
@@ -448,15 +473,15 @@ function renderHistory() {
       summary.appendChild(left); summary.appendChild(right); summary.appendChild(chevron);
       details.appendChild(summary);
       var detail = el("div", "history-detail");
-      var day = DAYS.filter(function (d) { return d.id === log.id; })[0];
-      if (day) {
-        if (store.warm[log.date + ":" + log.id]) detail.appendChild(el("p", null, "Échauffement fait"));
-        day.ex.forEach(function (ex) { var v = getLoad(ex[0], log.date); if (v) detail.appendChild(el("p", null, ex[0] + " · " + v + " kg")); });
-      }
+      var day = findDay(log.id);
+      var names = day ? day.ex.map(function (x) { return x[0]; }) : (log.ex || []);
+      if (store.warm[log.date + ":" + log.id]) detail.appendChild(el("p", null, "Échauffement fait"));
+      names.forEach(function (n) { var v = getLoad(n, log.date); if (v) detail.appendChild(el("p", null, n + " · " + v + " kg")); });
       if (!detail.childNodes.length) detail.appendChild(el("p", null, "Aucune charge enregistrée pour cette séance."));
-      if (day) {
+      var inActive = day && DAYS.some(function (d) { return d.id === day.id; });
+      if (inActive) {
         var open = el("button", "linkbtn", "Ouvrir cette séance"); open.type = "button";
-        open.addEventListener("click", function () { cur = day; viewWeek = weekOffsetOf(log.date); buildSession(); switchTab("sessions"); });
+        open.addEventListener("click", function () { cur = DAYS.filter(function (d) { return d.id === day.id; })[0]; viewWeek = weekOffsetOf(log.date); buildSession(); switchTab("sessions"); });
         detail.appendChild(open);
       }
       details.appendChild(detail); root.appendChild(details);
@@ -734,6 +759,279 @@ function setupServiceWorker() {
   });
 }
 
+/* ---------- Programmes ---------- */
+var DOW_LABELS = [null, "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+var DOW_SHORT = [null, "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+var editor = null;   // éditeur ouvert : { id, isNew, draft, dirty, errors }
+var progNotice = ""; // message affiché en haut de la liste
+var daysSig = "";
+
+function rid() { return Math.random().toString(36).slice(2, 7); }
+function newProgramId() { return "p" + Date.now().toString(36) + rid(); }
+function activeId() { var id = store.meta.activeProgram; return id && store.programs[id] ? id : "default"; }
+function programName(id) { return id === "default" ? "Mon programme" : (store.programs[id] ? store.programs[id].name : ""); }
+function programDays(id) { return id === "default" ? DEFAULT_DAYS : ((store.programs[id] && store.programs[id].days) || DEFAULT_DAYS); }
+function allProgramIds() {
+  var ids = Object.keys(store.programs).sort(function (a, b) { return (store.programs[a].created || 0) - (store.programs[b].created || 0); });
+  return ["default"].concat(ids);
+}
+function findDay(id) {
+  var lists = [DEFAULT_DAYS].concat(Object.keys(store.programs).map(function (k) { return store.programs[k].days || []; }));
+  for (var i = 0; i < lists.length; i++) for (var j = 0; j < lists[i].length; j++) if (lists[i][j].id === id) return lists[i][j];
+  return null;
+}
+
+/* Aligne l'interface sur le programme actif (après activation, modification ou synchro). */
+function refreshProgram() {
+  var id = activeId(), days = programDays(id), sig = id + "|" + JSON.stringify(days), changed = sig !== daysSig;
+  var curId = cur && cur.id;
+  DAYS = days; daysSig = sig;
+  var found = DAYS.filter(function (d) { return d.id === curId; })[0];
+  if (found) cur = found;
+  else { var f = nextSession(); cur = f.day; viewWeek = f.week; changed = true; }
+  if (changed && ui) buildSession();
+}
+
+function activateProgram(id) {
+  if (id === activeId()) return;
+  store.meta.activeProgram = id;
+  store.meta["pstart:" + id] = dateKey(new Date());
+  save();
+  refreshProgram();
+  renderHome(); renderPrograms();
+}
+
+function cloneDays(src, pid) {
+  return src.map(function (d) {
+    return {
+      id: pid + "." + rid(), short: DOW_SHORT[d.dow], dow: d.dow, tag: d.tag, title: d.title, p: pid,
+      ex: d.ex.map(function (x) { return [x[0], x[1], x[2], x[3], x[4], x[5], x[6] || "", x[7] || "", "e" + rid() + rid()]; })
+    };
+  });
+}
+
+function duplicateProgram(fromId) {
+  var pid = newProgramId();
+  store.programs[pid] = { name: programName(fromId) + " (copie)", created: Date.now(), days: cloneDays(programDays(fromId), pid) };
+  save();
+  openEditor(pid, false);
+}
+
+function blankEx() { return { id: "e" + rid() + rid(), name: "", sets: 3, reps: "", rest: "", rpe: "", note: "", url: "", en: "" }; }
+function freeDow(days) {
+  for (var d = 1; d <= 7; d++) if (!days.some(function (x) { return x.dow === d; })) return d;
+  return 1;
+}
+function blankDay(pid, days) {
+  return { id: pid + "." + rid(), dow: freeDow(days), tag: "Séance " + (days.length + 1), title: "", ex: [blankEx()] };
+}
+
+function newProgram() {
+  var pid = newProgramId(), draft = { name: "Nouveau programme", days: [] };
+  draft.days.push(blankDay(pid, draft.days));
+  editor = { id: pid, isNew: true, draft: draft, dirty: false, errors: [] };
+  renderPrograms(); window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function openEditor(pid, isNew) {
+  var p = store.programs[pid];
+  var draft = {
+    name: p.name,
+    days: p.days.map(function (d) {
+      return {
+        id: d.id, dow: d.dow, tag: d.tag, title: d.title === d.tag ? "" : d.title,
+        ex: d.ex.map(function (x) { return { id: x[8] || ("e" + rid() + rid()), name: x[0], sets: x[1], reps: x[2], rest: x[3], rpe: x[4], note: x[5], url: x[6] || "", en: x[7] || "" }; })
+      };
+    })
+  };
+  editor = { id: pid, isNew: !!isNew, draft: draft, dirty: false, errors: [] };
+  renderPrograms(); window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function validateDraft(d) {
+  var errs = [], used = {};
+  if (!d.name.trim()) errs.push("Le nom du programme est obligatoire.");
+  if (!d.days.length) errs.push("Ajoute au moins une séance.");
+  d.days.forEach(function (day, i) {
+    var label = "Séance " + (i + 1) + (day.tag.trim() ? " (" + day.tag.trim() + ")" : "");
+    if (!day.tag.trim()) errs.push("Séance " + (i + 1) + " : le nom est obligatoire.");
+    if (used[day.dow]) errs.push(label + " : le jour " + DOW_LABELS[day.dow].toLowerCase() + " est déjà pris par une autre séance.");
+    used[day.dow] = true;
+    if (!day.ex.length) errs.push(label + " : ajoute au moins un exercice.");
+    day.ex.forEach(function (x, j) {
+      var xl = label + ", exercice " + (j + 1);
+      if (!x.name.trim()) errs.push(xl + " : le nom est obligatoire.");
+      var n = parseInt(x.sets, 10);
+      if (!(n >= 1 && n <= 10)) errs.push(xl + " : le nombre de séries doit être entre 1 et 10.");
+    });
+  });
+  return errs;
+}
+
+function saveEditor() {
+  var d = editor.draft;
+  editor.errors = validateDraft(d);
+  if (editor.errors.length) { renderPrograms(); window.scrollTo({ top: 0, behavior: "instant" }); return; }
+  var pid = editor.id, existing = store.programs[pid];
+  var days = d.days.slice().sort(function (a, b) { return a.dow - b.dow; }).map(function (day) {
+    return {
+      id: day.id, short: DOW_SHORT[day.dow], dow: day.dow, tag: day.tag.trim(), title: day.title.trim() || day.tag.trim(), p: pid,
+      ex: day.ex.map(function (x) { return [x.name.trim(), parseInt(x.sets, 10), x.reps.trim(), x.rest.trim(), x.rpe.trim(), x.note.trim(), x.url.trim(), x.en || "", x.id]; })
+    };
+  });
+  store.programs[pid] = { name: d.name.trim(), created: existing ? existing.created : Date.now(), days: days };
+  save();
+  progNotice = "Programme « " + d.name.trim() + " » enregistré.";
+  editor = null;
+  refreshProgram(); renderHome(); renderPrograms();
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function closeEditor() {
+  if (editor.dirty && !confirm("Abandonner les modifications non enregistrées ?")) return;
+  editor = null; progNotice = ""; renderPrograms();
+}
+
+function renamePrompt(id) {
+  var nn = prompt("Nom du programme :", store.programs[id].name);
+  if (nn === null) return;
+  nn = nn.trim(); if (!nn) return;
+  store.programs[id].name = nn; save(); renderHome(); renderPrograms();
+}
+
+function deleteProgram(id) {
+  if (!confirm("Supprimer le programme « " + store.programs[id].name + " » ? Ton historique et tes charges sont conservés.")) return;
+  delete store.programs[id]; delete store.meta["pstart:" + id];
+  if (store.meta.activeProgram === id) store.meta.activeProgram = "default";
+  save(); progNotice = "Programme supprimé.";
+  refreshProgram(); renderHome(); renderPrograms();
+}
+
+/* --- Rendu --- */
+function btn(cls, label, fn) { var b = el("button", cls, label); b.type = "button"; b.addEventListener("click", fn); return b; }
+
+function renderPrograms() {
+  var root = $("programsRoot"); if (!root) return;
+  root.innerHTML = "";
+  $("programsHead").hidden = !!editor;
+  if (editor) renderEditor(root); else renderProgramList(root);
+}
+
+function renderProgramList(root) {
+  var act = activeId();
+  if (progNotice) root.appendChild(el("div", "session-done", progNotice));
+  var create = el("div", "prog-create");
+  create.appendChild(btn("ghost", "Copier le programme actif", function () { progNotice = ""; duplicateProgram(act); }));
+  create.appendChild(btn("ghost", "Partir de zéro", function () { progNotice = ""; newProgram(); }));
+  root.appendChild(create);
+  allProgramIds().forEach(function (id) {
+    var days = programDays(id), locked = id === "default", isActive = id === act;
+    var nEx = days.reduce(function (a, d) { return a + d.ex.length; }, 0);
+    var card = el("section", "prog-card" + (isActive ? " is-active" : ""));
+    var head = el("div", "prog-head");
+    head.appendChild(el("h3", null, programName(id)));
+    if (isActive) head.appendChild(el("span", "prog-badge", "Actif"));
+    if (locked) head.appendChild(el("span", "prog-badge muted-badge", "Verrouillé"));
+    card.appendChild(head);
+    card.appendChild(el("p", "note", days.length + (days.length > 1 ? " séances" : " séance") + " · " + nEx + (nEx > 1 ? " exercices" : " exercice") + " · " + days.map(function (d) { return d.short; }).join(" ")));
+    var actions = el("div", "prog-actions");
+    if (!isActive) actions.appendChild(btn("primary small", "Activer", function () { progNotice = ""; activateProgram(id); }));
+    if (!locked) actions.appendChild(btn("ghost", "Modifier", function () { progNotice = ""; openEditor(id, false); }));
+    actions.appendChild(btn("ghost", "Dupliquer", function () { progNotice = ""; duplicateProgram(id); }));
+    if (!locked) actions.appendChild(btn("ghost", "Renommer", function () { renamePrompt(id); }));
+    if (!locked) actions.appendChild(btn("ghost danger", "Supprimer", function () { deleteProgram(id); }));
+    card.appendChild(actions);
+    root.appendChild(card);
+  });
+}
+
+function rerenderEditor() {
+  var y = window.scrollY; renderPrograms(); window.scrollTo({ top: y, behavior: "instant" });
+}
+function touch() { editor.dirty = true; }
+
+function field(label, input, cls) {
+  var l = el("label", "pf" + (cls ? " " + cls : "")); l.appendChild(el("span", null, label)); l.appendChild(input); return l;
+}
+function textField(label, value, onChange, cls, placeholder) {
+  var i = document.createElement("input"); i.type = "text"; i.value = value || ""; if (placeholder) i.placeholder = placeholder;
+  i.autocomplete = "off";
+  i.addEventListener("input", function () { onChange(i.value); touch(); });
+  return field(label, i, cls);
+}
+function selectField(label, options, value, onChange, cls) {
+  var s = document.createElement("select");
+  options.forEach(function (o) { var op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; if (String(o[0]) === String(value)) op.selected = true; s.appendChild(op); });
+  s.addEventListener("change", function () { onChange(s.value); touch(); });
+  return field(label, s, cls);
+}
+
+function renderEditor(root) {
+  var d = editor.draft;
+  var top = el("div", "prog-top");
+  top.appendChild(btn("linkbtn back", "‹ Programmes", closeEditor));
+  top.appendChild(btn("primary small", "Enregistrer", saveEditor));
+  root.appendChild(top);
+  root.appendChild(el("h1", "page-title", editor.isNew ? "Nouveau programme" : "Modifier le programme"));
+  if (editor.errors.length) {
+    var box = el("div", "prog-errors"); box.setAttribute("role", "alert");
+    box.appendChild(el("b", null, "À corriger avant d'enregistrer :"));
+    var ul = document.createElement("ul"); editor.errors.forEach(function (m) { ul.appendChild(el("li", null, m)); });
+    box.appendChild(ul); root.appendChild(box);
+  }
+  var nameBox = el("section", "panel");
+  nameBox.appendChild(textField("Nom du programme", d.name, function (v) { d.name = v; }, "", "Ex. Prise de masse"));
+  root.appendChild(nameBox);
+
+  d.days.forEach(function (day, di) {
+    var sec = el("section", "prog-day");
+    var h = el("div", "prog-head");
+    h.appendChild(el("h3", null, "Séance " + (di + 1)));
+    h.appendChild(btn("ghost danger small", "Supprimer la séance", function () {
+      if (!confirm("Supprimer cette séance du programme ?")) return;
+      d.days.splice(di, 1); touch(); rerenderEditor();
+    }));
+    sec.appendChild(h);
+    sec.appendChild(textField("Nom de la séance", day.tag, function (v) { day.tag = v; }, "", "Ex. Push A"));
+    sec.appendChild(textField("Description (facultatif)", day.title, function (v) { day.title = v; }, "", "Ex. Pecs, épaules, triceps"));
+    sec.appendChild(selectField("Jour de la semaine", DOW_LABELS.slice(1).map(function (l, i) { return [i + 1, l]; }), day.dow, function (v) { day.dow = parseInt(v, 10); }));
+
+    day.ex.forEach(function (x, xi) {
+      var ex = el("div", "prog-ex");
+      var eh = el("div", "prog-head");
+      eh.appendChild(el("h4", null, "Exercice " + (xi + 1)));
+      var tools = el("div", "prog-tools");
+      var up = btn("icon-btn", "↑", function () { if (xi < 1) return; day.ex.splice(xi - 1, 0, day.ex.splice(xi, 1)[0]); touch(); rerenderEditor(); });
+      up.setAttribute("aria-label", "Monter l'exercice " + (xi + 1)); up.disabled = xi === 0;
+      var dn = btn("icon-btn", "↓", function () { if (xi >= day.ex.length - 1) return; day.ex.splice(xi + 1, 0, day.ex.splice(xi, 1)[0]); touch(); rerenderEditor(); });
+      dn.setAttribute("aria-label", "Descendre l'exercice " + (xi + 1)); dn.disabled = xi === day.ex.length - 1;
+      var rm = btn("icon-btn danger", "✕", function () { day.ex.splice(xi, 1); touch(); rerenderEditor(); });
+      rm.setAttribute("aria-label", "Supprimer l'exercice " + (xi + 1));
+      tools.appendChild(up); tools.appendChild(dn); tools.appendChild(rm); eh.appendChild(tools);
+      ex.appendChild(eh);
+      ex.appendChild(textField("Nom de l'exercice", x.name, function (v) { x.name = v; }, "", "Ex. Développé couché"));
+      var grid = el("div", "pf-grid");
+      grid.appendChild(selectField("Séries", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (n) { return [n, String(n)]; }), x.sets, function (v) { x.sets = parseInt(v, 10); }));
+      grid.appendChild(textField("Répétitions", x.reps, function (v) { x.reps = v; }, "", "8–10"));
+      grid.appendChild(textField("Repos", x.rest, function (v) { x.rest = v; }, "", "90 s"));
+      grid.appendChild(textField("RPE", x.rpe, function (v) { x.rpe = v; }, "", "8"));
+      ex.appendChild(grid);
+      ex.appendChild(textField("Note (facultatif)", x.note, function (v) { x.note = v; }));
+      ex.appendChild(textField("Lien d'explication (facultatif)", x.url, function (v) { x.url = v; }, "", "https://…"));
+      sec.appendChild(ex);
+    });
+    sec.appendChild(btn("ghost add", "+ Ajouter un exercice", function () { day.ex.push(blankEx()); touch(); rerenderEditor(); }));
+    root.appendChild(sec);
+  });
+
+  if (d.days.length < 7) root.appendChild(btn("ghost add", "+ Ajouter une séance", function () { d.days.push(blankDay(editor.id, d.days)); touch(); rerenderEditor(); }));
+  var bottom = el("div", "prog-bottom");
+  bottom.appendChild(btn("primary", "Enregistrer le programme", saveEditor));
+  bottom.appendChild(btn("ghost", "Annuler", closeEditor));
+  root.appendChild(bottom);
+  root.appendChild(el("p", "hint", "Les séances sont classées par jour de la semaine. L'échauffement et le circuit d'abdos sont communs à tous les programmes."));
+}
+
 /* ---------- Démarrage ---------- */
 document.querySelectorAll(".tabs button").forEach(function (b) { b.addEventListener("click", function () { switchTab(b.dataset.tab); }); });
 $("weekPrev").addEventListener("click", function () { viewWeek = Math.max(WEEK_MIN, viewWeek - 1); buildSession(); });
@@ -762,6 +1060,7 @@ document.addEventListener("visibilitychange", function () {
   if (activeTab === "home") renderHome();
 });
 
+refreshProgram();
 var first = nextSession(); cur = first.day; viewWeek = first.week;
 $("today").textContent = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 $("appVersion").textContent = "Setly v" + APP_VERSION;

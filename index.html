@@ -69,7 +69,7 @@
     <p id="nextDesc">Pecs · épaules · abdos</p>
     <button class="primary" id="startNext" type="button">Commencer la séance <span aria-hidden="true">→</span></button>
   </div>
-  <div class="section-head"><h2>Ton planning</h2><span class="muted" style="font-size:11px">4 séances / semaine</span></div>
+  <div class="section-head"><h2>Ton planning</h2><span class="muted" id="weekGoalLabel" style="font-size:11px">4 séances / semaine</span></div>
   <div class="week" id="homeWeek"></div>
   <div class="section-head"><h2>En un coup d'œil</h2></div>
   <div class="stat-grid">
@@ -135,6 +135,13 @@
   <div class="section-head"><h2>Charges enregistrées</h2></div>
   <div id="loadsList"></div>
 </section>
+<section id="programs" class="view">
+  <div id="programsHead">
+    <div class="page-title">Programmes</div>
+    <p class="page-sub">Crée et modifie tes programmes. Un seul est actif à la fois : il pilote l'accueil et les séances.</p>
+  </div>
+  <div id="programsRoot"></div>
+</section>
 <p class="foot">Tes charges et tes séries sont enregistrées sur cet appareil et synchronisées lorsque tu es connecté.</p>
 </div>
 
@@ -152,6 +159,7 @@
   <button data-tab="sessions" type="button" aria-label="Séances"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M3.5 10v4M18 8v8M20.5 10v4M6 12h12"/></svg><span>Séances</span></button>
   <button data-tab="history" type="button" aria-label="Historique"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Historique</span></button>
   <button data-tab="progress" type="button" aria-label="Progression"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M6 16v-5M12 16V5M18 16V9"/></svg><span>Progrès</span></button>
+  <button data-tab="programs" type="button" aria-label="Programmes"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Programmes</span></button>
 </nav>
 
 <!-- Bibliothèque Supabase hébergée dans le dépôt (voir README). Si le fichier est absent, sync.js la charge depuis le CDN. -->

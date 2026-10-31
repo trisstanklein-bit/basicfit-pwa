@@ -57,6 +57,7 @@
     Object.keys(d.logs || {}).forEach(function (k) { if (d.logs[k]) f["g" + SEP + k] = JSON.stringify(d.logs[k]); });
     Object.keys(d.warm || {}).forEach(function (k) { if (d.warm[k]) f["w" + SEP + k] = "1"; });
     Object.keys(d.meta || {}).forEach(function (k) { if (d.meta[k]) f["m" + SEP + k] = String(d.meta[k]); });
+    Object.keys(d.programs || {}).forEach(function (id) { if (d.programs[id]) f["p" + SEP + id] = JSON.stringify(d.programs[id]); });
     Object.keys(d.weight || {}).forEach(function (date) { if (d.weight[date]) f["b" + SEP + date] = String(d.weight[date]); });
     Object.keys(d.hist || {}).forEach(function (n) {
       var h = d.hist[n] || {};
@@ -66,7 +67,7 @@
   }
 
   function unflatten(f) {
-    var d = { sets: {}, load: {}, logs: {}, hist: {}, warm: {}, meta: {}, weight: {} };
+    var d = { sets: {}, load: {}, logs: {}, hist: {}, warm: {}, meta: {}, weight: {}, programs: {} };
     Object.keys(f).forEach(function (key) {
       var p = key.split(SEP), v = f[key];
       if (p[0] === "s") d.sets[p[1]] = 1;
@@ -75,6 +76,7 @@
       else if (p[0] === "w") d.warm[p[1]] = true;
       else if (p[0] === "m") d.meta[p[1]] = v;
       else if (p[0] === "b") d.weight[p[1]] = v;
+      else if (p[0] === "p") { try { d.programs[p[1]] = JSON.parse(v); } catch (e) {} }
       else if (p[0] === "h") (d.hist[p[1]] || (d.hist[p[1]] = {}))[p[2]] = v;
     });
     // La « dernière charge » est toujours dérivée de l'historique.
