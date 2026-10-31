@@ -162,12 +162,12 @@ function updateLog(day, date) {
   else delete store.logs[k];
 }
 
-/* Prochaine séance : la première non terminée à partir d'aujourd'hui, sinon le début de la semaine suivante. */
+/* Prochaine séance : la première non terminée de la semaine en cours (jour prévu ou en retard),
+   sinon le début de la semaine suivante. */
 function nextSession() {
-  var today = dateKey(new Date());
   for (var i = 0; i < DAYS.length; i++) {
     var dt = dateKey(dayDate(DAYS[i], 0));
-    if (dt >= today && !isComplete(DAYS[i], dt)) return { day: DAYS[i], week: 0, date: dt };
+    if (!isComplete(DAYS[i], dt)) return { day: DAYS[i], week: 0, date: dt };
   }
   return { day: DAYS[0], week: 1, date: dateKey(dayDate(DAYS[0], 1)) };
 }
@@ -406,7 +406,7 @@ function renderHome() {
 
   makeWeek("homeWeek");
   var nx = nextSession(), d = nx.day;
-  $("nextLabel").textContent = nx.date === today ? "TA SÉANCE DU JOUR" : "TA PROCHAINE SÉANCE · " + fmtLong(nx.date).toUpperCase();
+  $("nextLabel").textContent = nx.date === today ? "TA SÉANCE DU JOUR" : nx.date < today ? "SÉANCE EN RETARD · " + fmtLong(nx.date).toUpperCase() : "TA PROCHAINE SÉANCE · " + fmtLong(nx.date).toUpperCase();
   $("nextTitle").textContent = d.tag;
   $("nextDesc").textContent = d.title;
   $("startNext").onclick = function () { cur = d; viewWeek = nx.week; buildSession(); switchTab("sessions"); };
