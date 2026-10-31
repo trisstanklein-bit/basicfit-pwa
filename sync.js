@@ -56,6 +56,7 @@
     Object.keys(d.load || {}).forEach(function (k) { if (d.load[k]) f["l" + SEP + k] = String(d.load[k]); });
     Object.keys(d.logs || {}).forEach(function (k) { if (d.logs[k]) f["g" + SEP + k] = JSON.stringify(d.logs[k]); });
     Object.keys(d.warm || {}).forEach(function (k) { if (d.warm[k]) f["w" + SEP + k] = "1"; });
+    Object.keys(d.meta || {}).forEach(function (k) { if (d.meta[k]) f["m" + SEP + k] = String(d.meta[k]); });
     Object.keys(d.hist || {}).forEach(function (n) {
       var h = d.hist[n] || {};
       Object.keys(h).forEach(function (date) { if (h[date]) f["h" + SEP + n + SEP + date] = String(h[date]); });
@@ -64,13 +65,14 @@
   }
 
   function unflatten(f) {
-    var d = { sets: {}, load: {}, logs: {}, hist: {}, warm: {} };
+    var d = { sets: {}, load: {}, logs: {}, hist: {}, warm: {}, meta: {} };
     Object.keys(f).forEach(function (key) {
       var p = key.split(SEP), v = f[key];
       if (p[0] === "s") d.sets[p[1]] = 1;
       else if (p[0] === "l") d.load[p[1]] = v;
       else if (p[0] === "g") { try { d.logs[p[1]] = JSON.parse(v); } catch (e) {} }
       else if (p[0] === "w") d.warm[p[1]] = true;
+      else if (p[0] === "m") d.meta[p[1]] = v;
       else if (p[0] === "h") (d.hist[p[1]] || (d.hist[p[1]] = {}))[p[2]] = v;
     });
     // La « dernière charge » est toujours dérivée de l'historique.
@@ -86,6 +88,10 @@
     [base, local, remote].forEach(function (m) { Object.keys(m).forEach(function (k) { keys[k] = 1; }); });
     Object.keys(keys).forEach(function (k) {
       var v = local[k] === base[k] ? remote[k] : local[k];
+      if (k === "m" + SEP + "start") { // date de première utilisation : la plus ancienne l'emporte
+        var c = [local[k], remote[k]].filter(Boolean).sort();
+        v = c.length ? c[0] : v;
+      }
       if (v !== undefined) out[k] = v;
     });
     return out;
