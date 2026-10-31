@@ -61,7 +61,7 @@ var DAYS = [
 var APP_VERSION = "2.0";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
-var MAPS = ["sets", "load", "logs", "hist", "warm", "meta"];
+var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight"];
 var WEEK_MIN = -52, WEEK_MAX = 8;
 
 function $(id) { return document.getElementById(id); }
@@ -513,6 +513,87 @@ function renderLoads() {
   if (!any) list.appendChild(el("div", "empty", "Tes charges enregistrées apparaîtront ici."));
 }
 
+function weightDates() {
+  return Object.keys(store.weight || {}).filter(function (k) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(k) && numLoad(store.weight[k]) !== null && numLoad(store.weight[k]) > 0;
+  }).sort();
+}
+function weightDiff(a, b) {
+  var x = numLoad(a), y = numLoad(b);
+  if (x === null || y === null) return "";
+  var d = Math.round((x - y) * 100) / 100;
+  if (!d) return "0 kg";
+  return (d < 0 ? "−" : "+") + fmtNum(Math.abs(d)) + " kg";
+}
+function renderWeight() {
+  var summary = $("weightSummary"), chart = $("weightChart"), list = $("weightList");
+  if (!summary || !chart || !list) return;
+  summary.innerHTML = ""; chart.innerHTML = ""; list.innerHTML = "";
+  var dates = weightDates(), shown = dates.slice(-12);
+  if (!dates.length) {
+    summary.appendChild(el("div", "empty", "Enregistre ta première pesée pour suivre ton évolution."));
+    chart.appendChild(el("div", "empty", "La courbe apparaîtra ici."));
+  } else {
+    var latestDate = dates[dates.length - 1], latest = store.weight[latestDate], latestNum = numLoad(latest);
+    var stats = el("div", "weight-stats");
+    var main = el("div", "weight-main");
+    main.appendChild(el("span", "muted", "Dernière pesée · " + fmtDate(latestDate)));
+    main.appendChild(el("strong", null, fmtNum(latestNum) + " kg"));
+    stats.appendChild(main);
+    var previous = dates.length > 1 ? store.weight[dates[dates.length - 2]] : null;
+    var first = dates.length > 1 ? store.weight[dates[0]] : null;
+    var prevStat = el("div", "weight-change");
+    prevStat.appendChild(el("span", "muted", "Depuis la précédente"));
+    prevStat.appendChild(el("strong", null, previous === null ? "—" : weightDiff(latest, previous)));
+    stats.appendChild(prevStat);
+    var firstStat = el("div", "weight-change");
+    firstStat.appendChild(el("span", "muted", "Depuis la première"));
+    firstStat.appendChild(el("strong", null, first === null ? "—" : weightDiff(latest, first)));
+    stats.appendChild(firstStat);
+    summary.appendChild(stats);
+
+    var vals = shown.map(function (k) { return numLoad(store.weight[k]); });
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var w = 320, h = 176, left = 38, right = 12, top = 20, bottom = 30;
+    var plotW = w - left - right, plotH = h - top - bottom;
+    var range = max - min || Math.max(1, max * 0.02);
+    var svg = svgEl("svg");
+    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Évolution du poids sur les " + shown.length + " dernières pesées, de " + fmtNum(min) + " à " + fmtNum(max) + " kg");
+    var minLabel = svgEl("text"); minLabel.setAttribute("x", "2"); minLabel.setAttribute("y", String(top + plotH)); minLabel.setAttribute("class", "weight-axis"); minLabel.textContent = fmtNum(min); svg.appendChild(minLabel);
+    var maxLabel = svgEl("text"); maxLabel.setAttribute("x", "2"); maxLabel.setAttribute("y", String(top + 4)); maxLabel.setAttribute("class", "weight-axis"); maxLabel.textContent = fmtNum(max); svg.appendChild(maxLabel);
+    var points = vals.map(function (v, i) {
+      return { x: left + (shown.length < 2 ? plotW / 2 : i * plotW / (shown.length - 1)), y: top + (max - v) / range * plotH };
+    });
+    var line = svgEl("polyline");
+    line.setAttribute("points", points.map(function (p) { return p.x + "," + p.y; }).join(" "));
+    line.setAttribute("fill", "none"); line.setAttribute("stroke", "var(--accent)"); line.setAttribute("stroke-width", "2.5"); line.setAttribute("stroke-linecap", "round"); line.setAttribute("stroke-linejoin", "round"); svg.appendChild(line);
+    points.forEach(function (p, i) {
+      var c = svgEl("circle"); c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", i === points.length - 1 ? "5.5" : "3"); c.setAttribute("fill", i === points.length - 1 ? "var(--accent)" : "var(--surface-1)");
+      c.setAttribute("stroke", "var(--accent)"); c.setAttribute("stroke-width", i === points.length - 1 ? "2" : "1.5"); svg.appendChild(c);
+      if (i === 0 || i === points.length - 1 || (shown.length > 6 && i % 3 === 0)) {
+        var label = svgEl("text"); label.setAttribute("x", p.x); label.setAttribute("y", String(h - 8)); label.setAttribute("text-anchor", "middle"); label.setAttribute("class", "weight-date"); label.textContent = parseKey(shown[i]).getDate() + "/" + (parseKey(shown[i]).getMonth() + 1); svg.appendChild(label);
+      }
+    });
+    chart.appendChild(svg);
+  }
+  if (!dates.length) return;
+  list.appendChild(el("h3", null, "Pesées récentes"));
+  dates.slice().reverse().slice(0, 12).forEach(function (date) {
+    var row = el("div", "weight-row"), info = el("div", "weight-row-info");
+    info.appendChild(el("strong", null, fmtNum(numLoad(store.weight[date])) + " kg"));
+    info.appendChild(el("small", null, fmtLong(date)));
+    var del = el("button", "weight-delete", "Supprimer");
+    del.type = "button"; del.setAttribute("aria-label", "Supprimer la pesée du " + fmtLong(date));
+    del.addEventListener("click", function () {
+      if (!Object.prototype.hasOwnProperty.call(store.weight, date)) return;
+      delete store.weight[date]; save(); renderWeight();
+    });
+    row.appendChild(info); row.appendChild(del); list.appendChild(row);
+  });
+}
+
 function renderProgress() {
   var logs = Object.keys(store.logs);
   $("progressSessions").textContent = logs.length;
@@ -533,6 +614,7 @@ function renderProgress() {
     col.appendChild(bar); col.appendChild(el("small", null, "LMMJVSD".charAt(i))); chart.appendChild(col);
   });
   renderLoads();
+  renderWeight();
 }
 
 /* ---------- Minuteur de repos, son et écran allumé ---------- */
@@ -661,6 +743,18 @@ $("timerSkip").addEventListener("click", stopTimer);
 $("exportBtn").addEventListener("click", exportData);
 $("importBtn").addEventListener("click", function () { $("importFile").click(); });
 $("importFile").addEventListener("change", function () { if (this.files && this.files[0]) importData(this.files[0]); });
+$("weightDate").value = dateKey(new Date());
+$("weightForm").addEventListener("submit", function (event) {
+  event.preventDefault();
+  var date = $("weightDate").value, raw = $("weightValue").value.trim().replace(",", ".");
+  var value = Number(raw);
+  if (!date || !/^\d{1,3}(\.\d{1,2})?$/.test(raw) || !isFinite(value) || value <= 0 || value > 500) {
+    $("weightValue").setCustomValidity("Entre un poids valide en kg, par exemple 78,5.");
+    $("weightValue").reportValidity(); $("weightValue").setCustomValidity(""); return;
+  }
+  store.weight[date] = fmtNum(value);
+  save(); renderWeight(); $("weightValue").value = "";
+});
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState !== "visible") return;
   if (tInt) tick();

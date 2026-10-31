@@ -116,6 +116,22 @@
   </div>
   <div class="section-head"><h2>Activité récente</h2></div>
   <div class="panel"><div class="chart" id="activityChart"></div></div>
+  <div class="section-head"><h2>Poids de corps</h2></div>
+  <section class="panel weight-panel" aria-label="Suivi du poids de corps">
+    <form id="weightForm" class="weight-form">
+      <label for="weightValue">Poids (kg)
+        <input id="weightValue" name="weight" type="text" inputmode="decimal" autocomplete="off" placeholder="78,5" aria-describedby="weightFormHint" required>
+      </label>
+      <label for="weightDate">Date
+        <input id="weightDate" name="date" type="date" required>
+      </label>
+      <button class="primary" type="submit">Enregistrer</button>
+    </form>
+    <p class="hint" id="weightFormHint">La virgule ou le point décimal sont acceptés. Une pesée à la même date sera remplacée.</p>
+    <div id="weightSummary" class="weight-summary"></div>
+    <div id="weightChart" class="weight-chart-wrap"></div>
+    <div id="weightList" class="weight-list"></div>
+  </section>
   <div class="section-head"><h2>Charges enregistrées</h2></div>
   <div id="loadsList"></div>
 </section>

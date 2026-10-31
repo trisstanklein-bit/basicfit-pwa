@@ -213,3 +213,28 @@ details.lh summary b i{font-style:normal;font-size:11px;color:var(--label-2);mar
 .data-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .ghost{background:var(--surface-2);border:0;color:var(--label);border-radius:14px;padding:10px 14px;min-height:44px;font-size:13px;font-weight:600}
 .app-version{color:var(--label-3);font-size:11px;margin:6px 0 0}
+
+
+/* ===== Suivi du poids de corps ===== */
+.weight-panel{padding:16px}
+.weight-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:end}
+.weight-form label{display:grid;gap:6px;color:var(--label-2);font-size:12px;font-weight:600;min-width:0}
+.weight-form input{width:100%;min-width:0;min-height:48px;padding:10px 11px;background:var(--surface-2);border:0;border-radius:10px;color:var(--label);font-variant-numeric:tabular-nums}
+.weight-form button{grid-column:1/-1;width:100%}
+.weight-summary{margin-top:18px}
+.weight-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px}
+.weight-main{grid-column:1/-1;padding-bottom:12px;border-bottom:1px solid var(--separator)}
+.weight-main span,.weight-change span{display:block;font-size:12px}
+.weight-main strong{display:block;font-size:32px;line-height:1.2;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums}
+.weight-change strong{display:block;font-size:16px;margin-top:4px;font-variant-numeric:tabular-nums}
+.weight-chart-wrap{margin:14px 0 6px;min-width:0}
+.weight-chart-wrap svg{display:block;width:100%;height:auto;overflow:visible}
+.weight-axis{fill:var(--label-2);font-size:10px}
+.weight-date{fill:var(--label-2);font-size:10px}
+.weight-list h3{font-size:15px;margin:18px 0 8px}
+.weight-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--separator)}
+.weight-row-info{min-width:0}
+.weight-row-info strong{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.weight-row-info small{display:block;color:var(--label-2);font-size:12px;margin-top:2px}
+.weight-delete{flex:0 0 auto;min-height:44px;padding:8px 12px;border:0;border-radius:12px;background:var(--surface-2);color:var(--danger);font-size:12px;font-weight:600}
+@media(max-width:360px){.weight-form{grid-template-columns:minmax(0,1fr)}.weight-form button{grid-column:auto}}
