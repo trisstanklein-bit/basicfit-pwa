@@ -54,7 +54,7 @@ Si `supabase.js` est absent, l'app tente de charger la bibliothèque depuis inte
 ## Mettre à jour l'app
 
 1. Remplace les fichiers modifiés dans GitHub.
-2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v15` devient `setly-pwa-v16`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
+2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v16` devient `setly-pwa-v17`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
 3. Ouvre l'app : un bandeau « Nouvelle version disponible » apparaît. Touche **Mettre à jour**.
 4. Vérifie la version affichée en bas du panneau « Compte » (bouton en haut à droite).
 

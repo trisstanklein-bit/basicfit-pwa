@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.2";
+var APP_VERSION = "2.3";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -1032,6 +1032,24 @@ function renderEditor(root) {
   root.appendChild(el("p", "hint", "Les séances sont classées par jour de la semaine. L'échauffement et le circuit d'abdos sont communs à tous les programmes."));
 }
 
+/* ---------- Page qui tient dans l'écran : pas de défilement, pas de rebond ---------- */
+var appEl = document.querySelector(".app"), fitRaf = 0;
+function updateFit() {
+  cancelAnimationFrame(fitRaf);
+  fitRaf = requestAnimationFrame(function () {
+    var cs = getComputedStyle(document.body);
+    var needed = appEl.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    var fits = needed <= window.innerHeight + 1;
+    document.documentElement.classList.toggle("fit", fits);
+    if (fits && window.scrollY) window.scrollTo({ top: 0, behavior: "instant" });
+  });
+}
+if (window.ResizeObserver) new ResizeObserver(updateFit).observe(appEl);
+window.addEventListener("resize", updateFit);
+window.addEventListener("orientationchange", updateFit);
+/* Pas de zoom au pincement (comme une app native). Évènements propres à iOS ; aucun effet sur les appuis. */
+["gesturestart", "gesturechange", "gestureend"].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false }); });
+
 /* ---------- Démarrage ---------- */
 document.querySelectorAll(".tabs button").forEach(function (b) { b.addEventListener("click", function () { switchTab(b.dataset.tab); }); });
 $("weekPrev").addEventListener("click", function () { viewWeek = Math.max(WEEK_MIN, viewWeek - 1); buildSession(); });
@@ -1064,7 +1082,7 @@ refreshProgram();
 var first = nextSession(); cur = first.day; viewWeek = first.week;
 $("today").textContent = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 $("appVersion").textContent = "Setly v" + APP_VERSION;
-renderHome(); buildSession();
+renderHome(); buildSession(); updateFit();
 setupServiceWorker();
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
 
