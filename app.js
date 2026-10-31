@@ -61,7 +61,7 @@ var DAYS = [
 var APP_VERSION = "2.0";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
-var MAPS = ["sets", "load", "logs", "hist", "warm"];
+var MAPS = ["sets", "load", "logs", "hist", "warm", "meta"];
 var WEEK_MIN = -52, WEEK_MAX = 8;
 
 function $(id) { return document.getElementById(id); }
@@ -70,6 +70,9 @@ function $(id) { return document.getElementById(id); }
 var store = {};
 try { store = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { store = {}; }
 MAPS.forEach(function (k) { if (!store[k] || typeof store[k] !== "object") store[k] = {}; });
+
+/* Date de première utilisation : les séances antérieures ne sont jamais proposées « en retard ». */
+if (!store.meta.start) { store.meta.start = dateKey(new Date()); try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
 
 var rev = 0;          // compteur de modifications locales (utilisé par la synchro)
 var afterSave = null; // crochet appelé après chaque sauvegarde (défini par sync.js)
@@ -167,6 +170,7 @@ function updateLog(day, date) {
 function nextSession() {
   for (var i = 0; i < DAYS.length; i++) {
     var dt = dateKey(dayDate(DAYS[i], 0));
+    if (dt < store.meta.start) continue;
     if (!isComplete(DAYS[i], dt)) return { day: DAYS[i], week: 0, date: dt };
   }
   return { day: DAYS[0], week: 1, date: dateKey(dayDate(DAYS[0], 1)) };
