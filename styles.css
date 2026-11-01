@@ -17,7 +17,7 @@
  --ease:cubic-bezier(.2,.8,.2,1)
 }
 *{box-sizing:border-box}
-html{touch-action:manipulation;scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px);scroll-padding-bottom:calc(var(--tabbar-h) + 40px + env(safe-area-inset-bottom,0px));overscroll-behavior:none;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+html{touch-action:manipulation;scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 68px);scroll-padding-bottom:calc(var(--tabbar-h) + 40px + env(safe-area-inset-bottom,0px));overscroll-behavior:none;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{overscroll-behavior:none;min-height:100vh;min-height:100dvh;margin:0;background:var(--bg);color:var(--label);font:400 15px/1.45 var(--font);padding:env(safe-area-inset-top) 0 calc(var(--tabbar-h) + 44px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;z-index:30;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:linear-gradient(rgba(11,12,14,.92),rgba(11,12,14,.6));-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:none}
 input{caret-color:var(--accent)}
@@ -38,6 +38,13 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .date{color:var(--label-2);font-size:12px;line-height:1.25;text-align:right;text-wrap:balance}
 .date::first-letter{text-transform:uppercase}
 .top-right{display:flex;align-items:center;gap:10px}
+/* Bandeau sticky : position normale au départ, puis il reste en haut. Le haut de son padding (--top-pad) glisse
+   sous le bord, ce qui le resserre sans changer sa hauteur (donc aucun saut). Le fond n'apparaît qu'une fois collé (.is-stuck),
+   avec le même verre sombre que la zone de sécurité en haut de l'écran. */
+.top{--top-pad:16px;--gx-l:max(var(--page-gutter),env(safe-area-inset-left,0px));--gx-r:max(var(--page-gutter),env(safe-area-inset-right,0px));position:sticky;z-index:15;top:calc(env(safe-area-inset-top,0px) - var(--top-pad) + 8px)}
+.top::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:calc(var(--gx-l) * -1);right:calc(var(--gx-r) * -1);background:rgba(11,12,14,.78);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);box-shadow:0 .5px 0 var(--separator);opacity:0;pointer-events:none;transition:opacity 220ms var(--ease)}
+.top.is-stuck::before{opacity:1}
+@media (prefers-reduced-motion:reduce){.top::before{transition:none}}
 /* Avatar (accès secondaire : Profil, Plans, Paramètres, Synchronisation). Le point d'état reflète la synchro (data-state posé par sync.js). */
 .avatar-btn{position:relative;flex:0 0 44px;width:44px;height:44px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:var(--surface-1);color:var(--label-2);transition:background 220ms var(--ease),color 220ms var(--ease),transform 240ms var(--ease)}
 .avatar-btn[aria-expanded="true"]{background:var(--surface-3);color:var(--label)}
@@ -192,7 +199,7 @@ details.lh summary b i{font-style:normal;font-size:11px;color:var(--label-2);mar
  :root{--page-gutter:30px;--tabbar-h:0px}
  body{padding:0 0 28px 240px}
  .app{max-width:980px;padding:0 32px}
- .top{padding-top:26px}
+ .top{--top-pad:26px;--gx-l:32px;--gx-r:32px;padding-top:26px}
  .tabs{position:fixed;left:16px;top:16px;bottom:16px;transform:none;width:208px;max-width:none;border-radius:24px;display:flex;flex-direction:column;justify-content:flex-start;gap:8px;padding:14px}
  .tabs button{flex-direction:row;justify-content:flex-start;gap:12px;text-align:left;padding:0 14px;min-height:48px;border-radius:14px;font-size:14px}
  .tabs button .ico{width:22px;height:22px;margin:0}

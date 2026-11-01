@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.5";
+var APP_VERSION = "2.6";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -1266,6 +1266,14 @@ $("profileName").addEventListener("input", function () {
   save(); paintProfile(); renderHome();
 });
 renderHome(); buildSession(); paintProfile();
+
+/* Bandeau sticky : on ne fait que poser/retirer .is-stuck (fond) quand la page a défilé ; la fixation elle-même est en CSS. */
+(function () {
+  var top = document.querySelector(".top"), stuck = false;
+  function check() { var s = window.scrollY > 4; if (s !== stuck) { stuck = s; top.classList.toggle("is-stuck", s); } }
+  window.addEventListener("scroll", check, { passive: true });
+  check();
+})();
 setupServiceWorker();
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
 
