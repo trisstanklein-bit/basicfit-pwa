@@ -14,7 +14,7 @@
   function $(id) { return document.getElementById(id); }
 
   var status = $("cloudStatus"), login = $("cloudLogin"), logout = $("cloudLogout"), setPwd = $("cloudSetPwd");
-  var cloudToggle = $("cloudToggle"), cloudPanel = $("cloudPanel"), shortStatus = $("cloudShortStatus"), indicator = $("cloudIndicator");
+  var cloudToggle = $("cloudToggle"), shortStatus = $("cloudShortStatus"), indicator = $("cloudIndicator");
 
   var svgBase = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
   var cloud = '<path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9a4.5 4.5 0 0 0 1 9Z"/>';
@@ -30,11 +30,8 @@
 
   var client = null, activeUser = null, syncing = false, again = false, syncTimer = null;
 
-  cloudToggle.addEventListener("click", function () {
-    var opening = cloudPanel.hidden;
-    cloudPanel.hidden = !opening;
-    cloudToggle.setAttribute("aria-expanded", String(opening));
-  });
+  /* L'ouverture / fermeture de la feuille « Compte » est gérée par app.js (ressort, glissement, Échap) :
+     elle reste donc utilisable (export / import) même si la synchronisation est indisponible. */
 
   function showStatus(message, state) {
     status.textContent = message;
