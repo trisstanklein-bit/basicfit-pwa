@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.2";
+var APP_VERSION = "2.3";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -115,6 +115,8 @@ function fmtNum(n) { return String(Math.round(n * 100) / 100).replace(".", ",");
 function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
 function svgEl(tag) { return document.createElementNS("http://www.w3.org/2000/svg", tag); }
 function host(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return u; } }
+var reduceMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+function onMedia(mq, fn) { if (mq.addEventListener) mq.addEventListener("change", fn); else if (mq.addListener) mq.addListener(fn); }
 function restSeconds(t) {
   var m = /(\d+)\s*min/.exec(t); if (m) return +m[1] * 60;
   var s = /(\d+)\s*s/.exec(t); return s ? +s[1] : 60;
@@ -270,7 +272,7 @@ function howMenu(name, url, en) {
 
 function scrollToCard(node) {
   if (!node) return;
-  setTimeout(function () { try { node.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { node.scrollIntoView(); } }, 250);
+  setTimeout(function () { try { node.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" }); } catch (e) { node.scrollIntoView(); } }, 250);
 }
 
 function buildSession() {
@@ -613,7 +615,12 @@ function renderWeight() {
     del.type = "button"; del.setAttribute("aria-label", "Supprimer la pesée du " + fmtLong(date));
     del.addEventListener("click", function () {
       if (!Object.prototype.hasOwnProperty.call(store.weight, date)) return;
+      var previous = store.weight[date];
       delete store.weight[date]; save(); renderWeight();
+      showToast("Pesée du " + fmtDate(date) + " supprimée", function () {
+        if (store.weight[date]) return; // une nouvelle pesée a été saisie entre-temps : on ne l'écrase pas
+        store.weight[date] = previous; save(); renderWeight();
+      });
     });
     row.appendChild(info); row.appendChild(del); list.appendChild(row);
   });
@@ -899,12 +906,23 @@ function renamePrompt(id) {
   store.programs[id].name = nn; save(); renderHome(); renderPrograms();
 }
 
+/* Suppression réversible : pas de boîte de dialogue, un bandeau « Annuler » pendant quelques secondes.
+   L'historique et les charges ne sont jamais touchés. */
 function deleteProgram(id) {
-  if (!confirm("Supprimer le programme « " + store.programs[id].name + " » ? Ton historique et tes charges sont conservés.")) return;
+  var prog = store.programs[id];
+  if (!prog) return;
+  var wasActive = store.meta.activeProgram === id, pstart = store.meta["pstart:" + id];
   delete store.programs[id]; delete store.meta["pstart:" + id];
-  if (store.meta.activeProgram === id) store.meta.activeProgram = "default";
-  save(); progNotice = "Programme supprimé.";
+  if (wasActive) store.meta.activeProgram = "default";
+  save(); progNotice = "";
   refreshProgram(); renderHome(); renderPrograms();
+  showToast("Programme « " + prog.name + " » supprimé", function () {
+    store.programs[id] = prog;
+    if (pstart) store.meta["pstart:" + id] = pstart;
+    if (wasActive) store.meta.activeProgram = id;
+    save(); refreshProgram(); renderHome();
+    if (activeTab === "programs" && !editor) renderPrograms();
+  });
 }
 
 /* --- Rendu --- */
@@ -1031,6 +1049,120 @@ function renderEditor(root) {
   root.appendChild(bottom);
   root.appendChild(el("p", "hint", "Les séances sont classées par jour de la semaine. L'échauffement et le circuit d'abdos sont communs à tous les programmes."));
 }
+
+/* ---------- Bandeau d'annulation ---------- */
+var toastEl = $("toast"), toastMsg = $("toastMsg"), toastUndo = $("toastUndo"), toastTimer = null, toastHide = null, toastAction = null;
+function showToast(message, undo) {
+  clearTimeout(toastTimer); clearTimeout(toastHide);
+  toastAction = undo || null;
+  toastMsg.textContent = message;
+  toastUndo.hidden = !undo;
+  toastEl.hidden = false;
+  void toastEl.offsetWidth; // le navigateur enregistre l'état de départ avant la transition
+  toastEl.classList.add("show");
+  toastTimer = setTimeout(hideToast, undo ? 7000 : 3000);
+}
+function hideToast() {
+  clearTimeout(toastTimer);
+  toastEl.classList.remove("show"); toastAction = null;
+  toastHide = setTimeout(function () { toastEl.hidden = true; }, 300);
+}
+toastUndo.addEventListener("click", function () { var fn = toastAction; hideToast(); if (fn) fn(); });
+
+/* ---------- Feuille « Compte » : ressort, glissement, vélocité ----------
+   Une seule valeur p (0 = fermée, 1 = ouverte) pilote tout. Un ressort la fait évoluer ; le doigt peut l'attraper
+   à tout moment (le ressort s'arrête, on repart de la valeur affichée) et la vitesse du lâcher est transmise au
+   ressort suivant. Sur mobile : feuille du bas. Sur ≥ 900 px : popover ancré au bouton « Compte ». */
+var sheet = (function () {
+  var panel = $("cloudPanel"), scrim = $("cloudScrim"), toggle = $("cloudToggle"), grip = $("cloudGrip");
+  if (!panel || !scrim || !toggle || !grip) return null;
+  var mqDesk = window.matchMedia("(min-width: 900px)"), mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var p = 0, raf = 0, isOpen = false, drag = null;
+
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function rubberband(over, dim) { return (over * dim * 0.55) / (dim + 0.55 * Math.abs(over)); }
+  function project(v) { return (v / 1000) * 0.998 / (1 - 0.998); } // px/s → px (décélération du défilement iOS)
+
+  function paint() {
+    var c = clamp01(p);
+    scrim.style.opacity = String(c);
+    if (mqReduce.matches) { panel.style.transform = ""; panel.style.opacity = String(c); }          // fondu, sans déplacement
+    else if (mqDesk.matches) { panel.style.opacity = String(c); panel.style.transform = "scale(" + (0.96 + 0.04 * c) + ")"; }
+    else { panel.style.opacity = ""; panel.style.transform = "translate3d(0," + ((1 - p) * panel.offsetHeight) + "px,0)"; }
+  }
+
+  function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
+
+  /* Ressort amorti : response = rapidité (s), damping 1 = sans rebond. Part de la valeur courante, avec sa vitesse. */
+  function spring(to, v0, response, damping, done) {
+    stop();
+    var w = 2 * Math.PI / response, k = w * w, c = 2 * damping * w;
+    var x = p, v = v0 || 0, last = performance.now();
+    function step(now) {
+      var dt = Math.max(0, Math.min(0.032, (now - last) / 1000)); last = now;
+      var n = Math.max(1, Math.ceil(dt / 0.004)), h = dt / n;
+      for (var i = 0; i < n; i++) { v += (-k * (x - to) - c * v) * h; x += v * h; }
+      if (Math.abs(x - to) < 0.001 && Math.abs(v) < 0.02) { p = to; paint(); raf = 0; if (done) done(); return; }
+      p = x; paint(); raf = requestAnimationFrame(step);
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  function setOpen(next, v0, bounce) {
+    isOpen = next;
+    toggle.setAttribute("aria-expanded", String(next));
+    if (next) {
+      if (panel.hidden) { panel.hidden = false; p = 0; }
+      scrim.hidden = mqDesk.matches;
+      paint();
+    }
+    spring(next ? 1 : 0, v0, mqReduce.matches ? 0.14 : bounce ? 0.3 : 0.38, mqReduce.matches ? 1 : bounce ? 0.8 : 1, function () {
+      if (isOpen) return;
+      panel.hidden = true; scrim.hidden = true; panel.style.transform = ""; panel.style.opacity = "";
+    });
+  }
+
+  function closeAndRestoreFocus() {
+    if (panel.contains(document.activeElement)) toggle.focus();
+    setOpen(false);
+  }
+
+  toggle.addEventListener("click", function () { if (isOpen) closeAndRestoreFocus(); else setOpen(true); });
+  scrim.addEventListener("click", function () { setOpen(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen) closeAndRestoreFocus(); });
+  document.addEventListener("pointerdown", function (e) { // popover non bloquant : un appui à l'extérieur le referme
+    if (isOpen && mqDesk.matches && !panel.contains(e.target) && !toggle.contains(e.target)) setOpen(false);
+  });
+  onMedia(mqDesk, function () { if (!panel.hidden) { scrim.hidden = mqDesk.matches; panel.style.transform = ""; paint(); } });
+
+  /* Glissement 1:1 depuis la poignée (mobile). On respecte l'endroit où le doigt a saisi la feuille. */
+  grip.addEventListener("pointerdown", function (e) {
+    if (mqDesk.matches || !isOpen) return;
+    stop(); // interruption : on repart de p tel qu'affiché, même au milieu d'une animation
+    grip.setPointerCapture(e.pointerId);
+    drag = { id: e.pointerId, H: panel.offsetHeight, y0: e.clientY, p0: p, hist: [{ t: e.timeStamp, y: e.clientY }] };
+  });
+  grip.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var y = (1 - drag.p0) * drag.H + (e.clientY - drag.y0);
+    if (y < 0) y = -rubberband(-y, drag.H); // résistance progressive au-delà du haut
+    p = 1 - y / drag.H; paint();
+    drag.hist.push({ t: e.timeStamp, y: e.clientY });
+    while (drag.hist.length > 2 && e.timeStamp - drag.hist[0].t > 100) drag.hist.shift();
+  });
+  function release(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var h = drag.hist, a = h[0], b = h[h.length - 1], H = drag.H;
+    drag = null;
+    var v = b.t > a.t ? (b.y - a.y) / (b.t - a.t) * 1000 : 0;      // px/s, positif = vers le bas
+    var yNow = (1 - p) * H, yEnd = yNow + project(v);               // où la feuille finirait son élan
+    setOpen(1 - yEnd / H > 0.5, -v / H, true);                      // on choisit la cible d'après la projection, et on passe la vitesse
+  }
+  grip.addEventListener("pointerup", release);
+  grip.addEventListener("pointercancel", release);
+
+  return { open: function () { setOpen(true); }, close: function () { setOpen(false); } };
+})();
 
 /* ---------- Démarrage ---------- */
 document.querySelectorAll(".tabs button").forEach(function (b) { b.addEventListener("click", function () { switchTab(b.dataset.tab); }); });
