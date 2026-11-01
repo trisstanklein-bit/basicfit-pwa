@@ -29,7 +29,9 @@
   </div>
 </header>
 
+<div class="sheet-scrim" id="cloudScrim" hidden></div>
 <section class="panel cloud-panel" id="cloudPanel" role="region" aria-label="Compte, synchronisation et sauvegarde" hidden>
+  <div class="sheet-grip" id="cloudGrip" aria-hidden="true"><i></i></div>
   <h3>Synchronisation</h3>
   <p class="muted" id="cloudStatus" style="font-size:13px" role="status" aria-live="polite">
     Non connecté · Tes données restent enregistrées sur cet appareil.
@@ -149,6 +151,11 @@
 <div class="update-banner" id="updateBanner" role="status" hidden>
   <span>Nouvelle version disponible</span>
   <button id="updateBtn" type="button">Mettre à jour</button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+  <span id="toastMsg"></span>
+  <button id="toastUndo" type="button">Annuler</button>
 </div>
 
 <div class="timer" id="timer" hidden aria-label="Chronomètre de repos">
