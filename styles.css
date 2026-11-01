@@ -17,11 +17,17 @@
  --sheet-shadow:0 -16px 50px rgba(0,0,0,.4),inset 0 .5px 0 rgba(255,255,255,.2);--pop-shadow:0 20px 60px rgba(0,0,0,.4),inset 0 .5px 0 rgba(255,255,255,.2);
  --glass-solid:#1E2026;--hc-edge:rgba(255,255,255,.45);--hc-edge-2:rgba(255,255,255,.35);
  --card-shadow:none;
+ --tab-glass:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,0) 60%),rgba(26,28,33,.64);
+ --tab-shadow:0 14px 34px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.35),inset 0 .5px 0 rgba(255,255,255,.22),inset 0 -.5px 0 rgba(255,255,255,.04);
+ --tab-ring:linear-gradient(165deg,rgba(255,255,255,.3),rgba(255,255,255,.05) 38%,rgba(255,255,255,.03) 62%,rgba(255,255,255,.14));
+ --tab-pill:linear-gradient(180deg,rgba(0,0,0,.46),rgba(0,0,0,.3));
+ --tab-pill-shadow:inset 0 1px 3px rgba(0,0,0,.55),inset 0 0 0 .5px rgba(255,255,255,.07);
  --sw-on:#C7F36B;--sw-off:#CDD1D8;--sw-edge:rgba(17,19,22,.14);--sw-thumb-on:#101215;--sw-thumb-off:#FFFFFF;--sw-sun:#D97A00;
  --ease-spring:cubic-bezier(.32,.72,0,1);
- --float-bottom:calc(env(safe-area-inset-bottom,0px) + var(--tabbar-h) + 22px);
+ --tab-bottom:max(12px,calc(env(safe-area-inset-bottom,0px) - 10px));
+ --float-bottom:calc(var(--tab-bottom) + var(--tabbar-h) + 14px);
  --panel:var(--surface-1);--panel2:var(--surface-2);--line:var(--separator);--text:var(--label);--muted:var(--label-2);--lime:var(--accent);--red:var(--danger);
- --radius:20px;--tabbar-h:50px;--page-gutter:16px;
+ --radius:20px;--tabbar-h:66px;--page-gutter:16px;
  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",system-ui,sans-serif;
  --ease:cubic-bezier(.2,.8,.2,1)
 }
@@ -44,13 +50,18 @@
  --safe-strip:linear-gradient(rgba(238,240,243,.94),rgba(238,240,243,.65));--bar-bg:rgba(238,240,243,.8);
  --sheet-shadow:0 -12px 40px rgba(20,24,32,.16),inset 0 .5px 0 rgba(255,255,255,.9);--pop-shadow:0 20px 50px rgba(20,24,32,.18),inset 0 .5px 0 rgba(255,255,255,.9);
  --glass-solid:#FFFFFF;--card-shadow:0 1px 2px rgba(20,24,32,.05),0 0 0 .5px rgba(20,24,32,.04);
+ --tab-glass:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,0) 60%),rgba(246,248,251,.72);
+ --tab-shadow:0 12px 32px rgba(20,24,32,.18),0 2px 6px rgba(20,24,32,.08),inset 0 .5px 0 rgba(255,255,255,.95);
+ --tab-ring:linear-gradient(165deg,rgba(255,255,255,.95),rgba(17,19,22,.06) 40%,rgba(17,19,22,.05) 62%,rgba(255,255,255,.7));
+ --tab-pill:linear-gradient(180deg,rgba(17,19,22,.09),rgba(17,19,22,.05));
+ --tab-pill-shadow:inset 0 1px 2px rgba(17,19,22,.14),inset 0 0 0 .5px rgba(17,19,22,.05);
 }
 /* Cartes : fine ombre en clair (surfaces blanches sur fond gris). Sans effet en sombre (--card-shadow:none). */
 :root[data-theme="light"] :is(.panel:not(.cloud-panel),.stat-grid,.prog-day,details.lh,.warm,.history-item,.empty,.rule,.exercise:not(.current),.prog-card:not(.is-active),.h-card:not(.is-latest)){box-shadow:var(--card-shadow)}
 :root[data-theme="light"] .set[aria-pressed=true]{box-shadow:inset 0 0 0 1px rgba(73,99,9,.35)}
 *{box-sizing:border-box}
-html{background:var(--bg);touch-action:manipulation;scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 68px);scroll-padding-bottom:calc(var(--tabbar-h) + 40px + env(safe-area-inset-bottom,0px));overscroll-behavior:none;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
-body{overscroll-behavior:none;min-height:100vh;min-height:100dvh;margin:0;background:var(--bg);color:var(--label);font:400 15px/1.45 var(--font);padding:env(safe-area-inset-top) 0 calc(var(--tabbar-h) + 44px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+html{background:var(--bg);touch-action:manipulation;scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 68px);scroll-padding-bottom:calc(var(--tabbar-h) + var(--tab-bottom) + 28px);overscroll-behavior:none;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{overscroll-behavior:none;min-height:100vh;min-height:100dvh;margin:0;background:var(--bg);color:var(--label);font:400 15px/1.45 var(--font);padding:env(safe-area-inset-top) 0 calc(var(--tabbar-h) + var(--tab-bottom) + 32px);-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;z-index:30;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--safe-strip);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:none}
 input{caret-color:var(--accent-text)}
 ::placeholder{color:var(--label-3);opacity:1}
@@ -123,17 +134,28 @@ body:has(#cloudToggle[data-state="error"]) #cloudIndicator{color:var(--warn)}
 .progress-track i{display:block;height:100%;background:var(--accent);border-radius:20px;width:0;transition:width 220ms var(--ease)}
 .progress-copy{display:flex;justify-content:space-between;gap:12px;color:var(--label-2);font-size:13px}
 .progress-copy b{color:var(--label);font-variant-numeric:tabular-nums}.week-progress{display:flex;align-items:center;gap:9px}.week-progress i{display:block;width:30px;height:30px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--progress,0)*1%),var(--surface-3) 0);position:relative}.week-progress i:after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface-1)}
-.tabs{position:fixed;z-index:20;left:0;right:0;bottom:0;box-sizing:border-box;min-height:calc(var(--tabbar-h) + env(safe-area-inset-bottom,0px));padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);background:var(--bar-bg);-webkit-backdrop-filter:blur(22px) saturate(1.8);backdrop-filter:blur(22px) saturate(1.8);border-top:.5px solid var(--glass-edge);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));transition:transform 280ms var(--ease-spring)}
-.tabs button{position:relative;background:transparent;border:0;border-radius:0;color:var(--tab-label);font-size:10.5px;font-weight:600;line-height:1.2;min-width:0;min-height:var(--tabbar-h);padding:6px 2px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:color 200ms var(--ease)}
+.tabs{--pad:5px;position:fixed;z-index:20;left:50%;bottom:var(--tab-bottom);transform:translateX(-50%);width:min(calc(100% - 32px),460px);height:var(--tabbar-h);padding:var(--pad);isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-radius:999px;background:var(--tab-glass);-webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);box-shadow:var(--tab-shadow);transition:transform 320ms var(--ease-spring)}
+/* Contour : fin reflet en dégradé (plus lumineux en haut à gauche), tracé par un masque. */
+.tabs::after{content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;padding:.75px;background:var(--tab-ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);pointer-events:none}
+.tabs button{position:relative;z-index:1;background:transparent;border:0;border-radius:999px;color:var(--tab-label);font-size:11px;font-weight:600;line-height:1.2;min-width:0;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:color 220ms var(--ease)}
 .tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tabs button .ico{display:block;width:26px;height:26px;stroke-width:1.75;transition:stroke-width 200ms var(--ease),transform 320ms var(--ease-spring)}
-.tabs button:active .ico{transform:scale(.88)}
+.tabs button .ico{display:block;width:25px;height:25px;stroke-width:1.75;transition:stroke-width 220ms var(--ease),transform 320ms var(--ease-spring)}
+.tabs button:active .ico{transform:scale(.9)}
 .tabs button.active{color:var(--accent-text)}
-.tabs button.active .ico{stroke-width:2.15}
-.tabs button:focus-visible{outline-offset:-5px;border-radius:14px}
+.tabs button.active .ico{stroke-width:2.1}
+.tabs button:focus-visible{outline-offset:-3px}
+/* Zone active : retrait sombre dans le matériau, très légère lueur de la couleur d'accent en bas. Repli sans :has() = fond sur l'onglet actif. */
+.tabs button.active{background:radial-gradient(70% 100% at 50% 115%,var(--accent-soft),transparent 70%),var(--tab-pill);box-shadow:var(--tab-pill-shadow)}
+@supports selector(:has(*)){
+ .tabs::before{content:"";position:absolute;z-index:0;top:var(--pad);bottom:var(--pad);left:var(--pad);width:calc((100% - 2 * var(--pad)) / 3);border-radius:999px;background:radial-gradient(70% 100% at 50% 115%,var(--accent-soft),transparent 70%),var(--tab-pill);box-shadow:var(--tab-pill-shadow);transform:translateX(calc(var(--i,0) * 100%));transition:transform 380ms var(--ease-spring),opacity 200ms var(--ease)}
+ .tabs:has(button:nth-child(2).active){--i:1}
+ .tabs:has(button:nth-child(3).active){--i:2}
+ .tabs:not(:has(button.active))::before{opacity:0}   /* page secondaire (ex. Plans) : aucun onglet actif */
+ .tabs button.active{background:transparent;box-shadow:none}
+}
 /* Clavier ouvert (écrans tactiles) : la barre s'efface pour ne pas flotter au-dessus du clavier ni masquer la saisie. */
 @media(hover:none) and (pointer:coarse){
- @supports selector(:has(*)){body:has(:is(input:not([type=checkbox],[type=radio],[type=button],[type=file]),textarea,select):focus) .tabs{transform:translateY(100%);pointer-events:none}}
+ @supports selector(:has(*)){body:has(:is(input:not([type=checkbox],[type=radio],[type=button],[type=file]),textarea,select):focus) .tabs{transform:translate(-50%,calc(100% + var(--tab-bottom) + 24px));pointer-events:none}}
 }
 .view{display:none;animation:view-in 280ms var(--ease) both}
 .view.active{display:block}
@@ -235,13 +257,11 @@ details.lh summary b i{font-style:normal;font-size:11px;color:var(--label-2);mar
  .sheet-grip i{display:block;width:36px;height:5px;border-radius:3px;background:var(--label-3)}
 }
 @media(min-width:900px){
- :root{--page-gutter:30px}
- body{padding:env(safe-area-inset-top) 0 calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom))}
+ :root{--page-gutter:30px;--tab-bottom:20px}
  .app{max-width:980px;padding:0 32px}
  .top{--top-pad:26px;--gx-l:32px;--gx-r:32px;padding-top:26px}
- /* Mac : même barre en bas, pleine largeur ; les trois onglets restent groupés au centre. */
- .tabs{padding-left:max(env(safe-area-inset-left,0px),calc((100% - 520px) / 2));padding-right:max(env(safe-area-inset-right,0px),calc((100% - 520px) / 2))}
- .tabs button{min-height:var(--tabbar-h)}
+ /* Mac : même capsule flottante, un peu plus compacte, centrée en bas. */
+ .tabs{width:min(420px,calc(100% - 64px))}
  .top-right .date{display:block}
  .timer{left:auto;right:28px;bottom:var(--float-bottom);transform:none;width:300px}
  .sheet-scrim{display:none}
