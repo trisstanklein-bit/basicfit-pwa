@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.3";
+var APP_VERSION = "2.4";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -113,6 +113,9 @@ function fmtLong(k) { return parseKey(k).toLocaleDateString("fr-FR", { weekday: 
 function numLoad(v) { var n = parseFloat(String(v).replace(",", ".")); return isNaN(n) ? null : n; }
 function fmtNum(n) { return String(Math.round(n * 100) / 100).replace(".", ","); }
 function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+function pop(b) {
+  b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+}
 function svgEl(tag) { return document.createElementNS("http://www.w3.org/2000/svg", tag); }
 function host(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return u; } }
 var reduceMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
@@ -324,10 +327,12 @@ function buildSession() {
     for (var n = 0; n < x[1]; n++) (function (n) {
       var key = setKey(date, day, i, n), b = el("button", "set", String(n + 1));
       b.type = "button"; b.setAttribute("aria-label", x[0] + ", série " + (n + 1));
+      b.addEventListener("animationend", function () { b.classList.remove("pop"); });
       b.addEventListener("click", function () {
         var on = !store.sets[key];
         if (on) store.sets[key] = 1; else delete store.sets[key];
         updateLog(day, date); save(); refreshSession();
+        if (on) pop(b);
         unlockAudio(); requestWake();
         if (!on || isComplete(day, date)) { stopTimer(); return; }
         startTimer(restSeconds(x[3]));
@@ -338,7 +343,7 @@ function buildSession() {
     controls.appendChild(sets);
 
     var lab = el("label", "load", "Charge"), inp = document.createElement("input"), hint = el("p", "hint");
-    inp.type = "text"; inp.inputMode = "decimal"; inp.placeholder = "kg"; inp.setAttribute("aria-label", "Charge en kg, " + x[0]);
+    inp.type = "text"; inp.inputMode = "decimal"; inp.placeholder = "–"; inp.setAttribute("aria-label", "Charge en kg, " + x[0]);
     o.inp = inp;
     o.paintHint = function () {
       var prev = lastBefore(x[0], date);
@@ -348,7 +353,10 @@ function buildSession() {
       hint.appendChild(document.createTextNode(prev.date ? "Dernière fois (" + fmtDate(prev.date) + ") : " : "Dernière fois : "));
       hint.appendChild(el("b", null, prev.value + " kg"));
       var d = diffLoad(inp.value, prev.value);
-      if (d !== null) hint.appendChild(document.createTextNode(" · " + d));
+      if (d !== null) {
+        hint.appendChild(document.createTextNode(" · "));
+        hint.appendChild(el("span", "delta " + (d.charAt(0) === "+" ? "up" : d === "identique" ? "same" : "down"), d));
+      }
     };
     inp.addEventListener("input", function () { setLoad(x[0], date, inp.value); o.paintHint(); save(); });
     lab.appendChild(inp); controls.appendChild(lab);
@@ -372,10 +380,12 @@ function buildSession() {
   for (var r = 0; r < CIRCUIT.rounds; r++) (function (r) {
     var key = roundKey(date, day, r), b = el("button", "set", String(r + 1));
     b.type = "button"; b.setAttribute("aria-label", "Circuit abdos, tour " + (r + 1));
+    b.addEventListener("animationend", function () { b.classList.remove("pop"); });
     b.addEventListener("click", function () {
       var on = !store.sets[key];
       if (on) store.sets[key] = 1; else delete store.sets[key];
       updateLog(day, date); save(); refreshSession();
+      if (on) pop(b);
       unlockAudio(); requestWake();
       if (on && r < CIRCUIT.rounds - 1 && !isComplete(day, date)) startTimer(CIRCUIT.restSec); else stopTimer();
     });
@@ -498,12 +508,12 @@ function loadItem(name) {
   if (!ds.length) { right.textContent = store.load[name] + " kg"; s.appendChild(right); d.appendChild(s); return d; }
   var h = store.hist[name], last = h[ds[ds.length - 1]];
   right.textContent = last + " kg";
-  if (ds.length > 1) { var df = diffLoad(last, h[ds[ds.length - 2]]); if (df && df !== "identique") right.appendChild(el("i", null, df)); }
+  if (ds.length > 1) { var df = diffLoad(last, h[ds[ds.length - 2]]); if (df && df !== "identique") right.appendChild(el("i", df.charAt(0) === "+" ? "up" : null, df)); }
   s.appendChild(right); d.appendChild(s);
   var best = null, bestDate = null;
   ds.forEach(function (k) { var v = numLoad(h[k]); if (v !== null && (best === null || v > best)) { best = v; bestDate = k; } });
   if (best !== null && ds.length > 1) {
-    var rec = el("p", "hint"); rec.appendChild(document.createTextNode("Record : "));
+    var rec = el("p", "hint rec"); rec.appendChild(document.createTextNode("Record : "));
     rec.appendChild(el("b", null, fmtNum(best) + " kg")); rec.appendChild(document.createTextNode(" (" + fmtDate(bestDate) + ")")); d.appendChild(rec);
   }
   var shown = ds.slice(-8), vals = shown.map(function (k) { return numLoad(h[k]); });
@@ -1165,6 +1175,7 @@ var sheet = (function () {
 })();
 
 /* ---------- Démarrage ---------- */
+document.addEventListener("touchstart", function () {}, { passive: true });
 document.querySelectorAll(".tabs button").forEach(function (b) { b.addEventListener("click", function () { switchTab(b.dataset.tab); }); });
 $("weekPrev").addEventListener("click", function () { viewWeek = Math.max(WEEK_MIN, viewWeek - 1); buildSession(); });
 $("weekNext").addEventListener("click", function () { viewWeek = Math.min(WEEK_MAX, viewWeek + 1); buildSession(); });
