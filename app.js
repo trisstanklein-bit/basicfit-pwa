@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.6";
+var APP_VERSION = "2.7";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -613,10 +613,10 @@ function renderWeight() {
     });
     var line = svgEl("polyline");
     line.setAttribute("points", points.map(function (p) { return p.x + "," + p.y; }).join(" "));
-    line.setAttribute("fill", "none"); line.setAttribute("stroke", "var(--accent)"); line.setAttribute("stroke-width", "2.5"); line.setAttribute("stroke-linecap", "round"); line.setAttribute("stroke-linejoin", "round"); svg.appendChild(line);
+    line.setAttribute("fill", "none"); line.setAttribute("stroke", "var(--chart-line)"); line.setAttribute("stroke-width", "2.5"); line.setAttribute("stroke-linecap", "round"); line.setAttribute("stroke-linejoin", "round"); svg.appendChild(line);
     points.forEach(function (p, i) {
-      var c = svgEl("circle"); c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", i === points.length - 1 ? "5.5" : "3"); c.setAttribute("fill", i === points.length - 1 ? "var(--accent)" : "var(--surface-1)");
-      c.setAttribute("stroke", "var(--accent)"); c.setAttribute("stroke-width", i === points.length - 1 ? "2" : "1.5"); svg.appendChild(c);
+      var c = svgEl("circle"); c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", i === points.length - 1 ? "5.5" : "3"); c.setAttribute("fill", i === points.length - 1 ? "var(--chart-line)" : "var(--surface-1)");
+      c.setAttribute("stroke", "var(--chart-line)"); c.setAttribute("stroke-width", i === points.length - 1 ? "2" : "1.5"); svg.appendChild(c);
       if (i === 0 || i === points.length - 1 || (shown.length > 6 && i % 3 === 0)) {
         var label = svgEl("text"); label.setAttribute("x", p.x); label.setAttribute("y", String(h - 8)); label.setAttribute("text-anchor", "middle"); label.setAttribute("class", "weight-date"); label.textContent = parseKey(shown[i]).getDate() + "/" + (parseKey(shown[i]).getMonth() + 1); svg.appendChild(label);
       }
@@ -1225,6 +1225,33 @@ function paintProfile() {
   $("profileSessions").textContent = Object.keys(store.logs).length;
   $("profileSince").textContent = store.meta.start ? parseKey(store.meta.start).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "–";
 }
+
+/* ---------- Thème (clair / sombre) ----------
+   Réglage propre à l'appareil : clé de stockage séparée, donc ni synchronisé, ni exporté, ni touché par l'import.
+   Les couleurs vivent dans styles.css (jetons) ; ici on ne pose que data-theme sur <html>. Un script de index.html l'applique déjà avant l'affichage. */
+var THEME_KEY = "setly-theme";
+var THEME_META = { dark: "#0B0C0E", light: "#EEF0F3" };
+var themeTimer = null;
+function readTheme() { try { return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark"; } catch (e) { return "dark"; } }
+function paintTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", THEME_META[t]);
+  var cs = document.querySelector('meta[name="color-scheme"]'); if (cs) cs.setAttribute("content", t);
+  $("themeSwitch").setAttribute("aria-checked", t === "dark" ? "true" : "false");
+}
+function setTheme(t) {
+  var root = document.documentElement;
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    root.classList.add("theme-anim");
+    clearTimeout(themeTimer);
+    themeTimer = setTimeout(function () { root.classList.remove("theme-anim"); }, 360);
+  }
+  paintTheme(t);
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+}
+paintTheme(readTheme());
+$("themeSwitch").addEventListener("click", function () { setTheme(this.getAttribute("aria-checked") === "true" ? "light" : "dark"); });
+window.addEventListener("storage", function (e) { if (e.key === THEME_KEY) paintTheme(readTheme()); }); // autre onglet de cet appareil
 
 /* ---------- Démarrage ---------- */
 document.addEventListener("touchstart", function () {}, { passive: true });
