@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.4";
+var APP_VERSION = "2.5";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -199,11 +199,14 @@ function nextSession() {
 
 /* ---------- État de l'interface ---------- */
 var cur = DAYS[0], viewWeek = 0, activeTab = "home", armed = false, ui = null;
-var tabScrollPositions = { home: 0, sessions: 0, history: 0, progress: 0, programs: 0 };
+var tabScrollPositions = { home: 0, sessions: 0, progress: 0, programs: 0 };
+var lastMainTab = "home"; // onglet d'où l'on est venu : sert au bouton « Retour » de la page Plans
 function curDate() { return dateKey(dayDate(cur, viewWeek)); }
 
+/* « programs » (Plans) n'est plus dans la barre : on y accède depuis l'avatar, comme à une page secondaire. */
 function switchTab(tab) {
   if (activeTab) tabScrollPositions[activeTab] = window.scrollY;
+  if (tab !== "programs") lastMainTab = tab;
   activeTab = tab;
   document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === tab); });
   document.querySelectorAll(".tabs button").forEach(function (b) {
@@ -211,8 +214,7 @@ function switchTab(tab) {
     if (b.dataset.tab === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
   if (tab === "home") renderHome();
-  if (tab === "history") renderHistory();
-  if (tab === "progress") renderProgress();
+  if (tab === "progress") renderProgress(); // inclut l'historique
   if (tab === "programs") renderPrograms();
   if (tab === "sessions") requestWake(); else releaseWake();
   window.scrollTo({ top: tabScrollPositions[tab] || 0, behavior: "instant" }); // immédiat : pas d'animation pendant que la page change de hauteur
@@ -221,9 +223,9 @@ function switchTab(tab) {
 function refreshAll() {
   renderHome();
   refreshSession();
-  if (activeTab === "history") renderHistory();
   if (activeTab === "progress") renderProgress();
   if (activeTab === "programs" && !editor) renderPrograms();
+  paintProfile();
 }
 
 /* ---------- Semaine ---------- */
@@ -439,7 +441,8 @@ function refreshSession() {
 /* ---------- Accueil ---------- */
 function renderHome() {
   var h = new Date().getHours(), today = dateKey(new Date());
-  $("greeting").textContent = h < 5 ? "Bonne nuit." : h < 12 ? "Bonjour." : h < 18 ? "Bon après-midi." : "Bonsoir.";
+  var nm = profileName();
+  $("greeting").textContent = (h < 5 ? "Bonne nuit" : h < 12 ? "Bonjour" : h < 18 ? "Bon après-midi" : "Bonsoir") + (nm ? " " + nm : "") + ".";
   var doneToday = DAYS.some(function (d) { return dateKey(dayDate(d, 0)) === today && isComplete(d, today); });
   $("greetingSub").textContent = doneToday ? "Séance du jour terminée, bien joué." : "Prêt pour ta prochaine séance ?";
 
@@ -464,41 +467,46 @@ function renderHome() {
 }
 
 /* ---------- Historique ---------- */
+/* Cartes à défilement horizontal, intégrées en bas de la page Progrès (appelée par renderProgress).
+   Mêmes données qu'avant : date, séance, séries, programme, échauffement, charges, accès à la séance. */
+function fmtCardDate(k) {
+  var d = parseKey(k), o = { weekday: "short", day: "numeric", month: "short" };
+  if (d.getFullYear() !== new Date().getFullYear()) o.year = "numeric";
+  return d.toLocaleDateString("fr-FR", o);
+}
 function renderHistory() {
   var root = $("historyList"); root.innerHTML = "";
   var logs = Object.keys(store.logs).map(function (k) { return store.logs[k]; }).sort(function (a, b) { return b.date.localeCompare(a.date); });
+  $("historyCount").textContent = logs.length ? logs.length + (logs.length > 1 ? " séances" : " séance") : "";
   if (!logs.length) { root.appendChild(el("div", "empty", "Tes séances terminées apparaîtront ici. Valide toutes les séries d’une séance pour l’enregistrer.")); return; }
-  var groups = {};
-  logs.forEach(function (log) { var key = log.date.slice(0, 7); (groups[key] || (groups[key] = [])).push(log); });
-  Object.keys(groups).sort().reverse().forEach(function (monthKey) {
-    root.appendChild(el("h2", "history-month", parseKey(monthKey + "-01").toLocaleDateString("fr-FR", { month: "long", year: "numeric" })));
-    groups[monthKey].forEach(function (log) {
-      var details = el("details", "history-entry"), summary = el("summary", "history-item");
-      var left = el("div");
-      left.appendChild(el("strong", null, log.title)); left.appendChild(el("small", null, fmtLong(log.date) + (log.prog ? " · " + log.prog : "")));
-      var right = el("div"); right.appendChild(el("small", null, log.sets + " séries"));
-      var chevron = svgEl("svg");
-      chevron.setAttribute("class", "history-chevron"); chevron.setAttribute("viewBox", "0 0 24 24"); chevron.setAttribute("fill", "none");
-      chevron.setAttribute("stroke", "currentColor"); chevron.setAttribute("stroke-width", "1.75");
-      chevron.setAttribute("stroke-linecap", "round"); chevron.setAttribute("stroke-linejoin", "round");
-      var p = svgEl("path"); p.setAttribute("d", "m9 18 6-6-6-6"); chevron.appendChild(p);
-      summary.appendChild(left); summary.appendChild(right); summary.appendChild(chevron);
-      details.appendChild(summary);
-      var detail = el("div", "history-detail");
-      var day = findDay(log.id);
-      var names = day ? day.ex.map(function (x) { return x[0]; }) : (log.ex || []);
-      if (store.warm[log.date + ":" + log.id]) detail.appendChild(el("p", null, "Échauffement fait"));
-      names.forEach(function (n) { var v = getLoad(n, log.date); if (v) detail.appendChild(el("p", null, n + " · " + v + " kg")); });
-      if (!detail.childNodes.length) detail.appendChild(el("p", null, "Aucune charge enregistrée pour cette séance."));
-      var inActive = day && DAYS.some(function (d) { return d.id === day.id; });
-      if (inActive) {
-        var open = el("button", "linkbtn", "Ouvrir cette séance"); open.type = "button";
-        open.addEventListener("click", function () { cur = DAYS.filter(function (d) { return d.id === day.id; })[0]; viewWeek = weekOffsetOf(log.date); buildSession(); switchTab("sessions"); });
-        detail.appendChild(open);
-      }
-      details.appendChild(detail); root.appendChild(details);
-    });
+  var scroller = el("div", "h-scroll");
+  scroller.tabIndex = 0; scroller.setAttribute("role", "region"); scroller.setAttribute("aria-label", "Historique des séances, défilement horizontal");
+  logs.forEach(function (log, idx) {
+    var card = el("article", "h-card" + (idx === 0 ? " is-latest" : ""));
+    var head = el("div", "h-head");
+    head.appendChild(el("small", null, fmtCardDate(log.date))); head.appendChild(el("strong", null, log.title));
+    card.appendChild(head);
+    var meta = el("div", "h-meta");
+    meta.appendChild(el("span", null, log.sets + (log.sets > 1 ? " séries" : " série")));
+    if (log.prog) meta.appendChild(el("span", null, log.prog));
+    if (store.warm[log.date + ":" + log.id]) meta.appendChild(el("span", "ok", "Échauffement fait"));
+    card.appendChild(meta);
+    var day = findDay(log.id);
+    var names = day ? day.ex.map(function (x) { return x[0]; }) : (log.ex || []);
+    var loads = names.filter(function (n) { return getLoad(n, log.date); });
+    if (loads.length) {
+      var ul = el("ul", "h-loads");
+      loads.forEach(function (n) { var li = document.createElement("li"); li.appendChild(el("span", null, n)); li.appendChild(el("b", null, getLoad(n, log.date) + " kg")); ul.appendChild(li); });
+      card.appendChild(ul);
+    } else card.appendChild(el("p", "h-none", "Aucune charge enregistrée pour cette séance."));
+    if (day && DAYS.some(function (d) { return d.id === day.id; })) {
+      var open = el("button", "h-open", "Ouvrir cette séance"); open.type = "button";
+      open.addEventListener("click", function () { cur = DAYS.filter(function (d) { return d.id === day.id; })[0]; viewWeek = weekOffsetOf(log.date); buildSession(); switchTab("sessions"); });
+      card.appendChild(open);
+    }
+    scroller.appendChild(card);
   });
+  root.appendChild(scroller);
 }
 
 /* ---------- Progression ---------- */
@@ -657,6 +665,7 @@ function renderProgress() {
   });
   renderLoads();
   renderWeight();
+  renderHistory();
 }
 
 /* ---------- Minuteur de repos, son et écran allumé ---------- */
@@ -1079,10 +1088,12 @@ function hideToast() {
 }
 toastUndo.addEventListener("click", function () { var fn = toastAction; hideToast(); if (fn) fn(); });
 
-/* ---------- Feuille « Compte » : ressort, glissement, vélocité ----------
+/* ---------- Espace personnel (avatar) : ressort, glissement, vélocité ----------
    Une seule valeur p (0 = fermée, 1 = ouverte) pilote tout. Un ressort la fait évoluer ; le doigt peut l'attraper
    à tout moment (le ressort s'arrête, on repart de la valeur affichée) et la vitesse du lâcher est transmise au
-   ressort suivant. Sur mobile : feuille du bas. Sur ≥ 900 px : popover ancré au bouton « Compte ». */
+   ressort suivant. Sur mobile : feuille du bas. Sur ≥ 900 px : popover ancré à l'avatar.
+   Le contenu est un menu (page « menu ») + des pages indépendantes (.pp[data-page]) : Profil, Paramètres, Synchronisation ;
+   « Plans » ouvre la page Plans de l'application. */
 var sheet = (function () {
   var panel = $("cloudPanel"), scrim = $("cloudScrim"), toggle = $("cloudToggle"), grip = $("cloudGrip");
   if (!panel || !scrim || !toggle || !grip) return null;
@@ -1102,6 +1113,28 @@ var sheet = (function () {
   }
 
   function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
+
+  /* Desktop : le popover se place sous l'avatar, d'après sa position réelle (le bouton défile avec la page). */
+  function placeDesk() {
+    if (!mqDesk.matches) { clearPlace(); return; }
+    var r = toggle.getBoundingClientRect();
+    panel.style.left = "auto";
+    panel.style.top = Math.round(r.bottom + 10) + "px";
+    panel.style.right = Math.max(12, Math.round(window.innerWidth - r.right)) + "px";
+  }
+  function clearPlace() { panel.style.top = panel.style.right = panel.style.left = ""; }
+
+  /* Pages internes : une seule visible à la fois, retour au menu par « ‹ Mon espace ». */
+  function showPage(name, focusIt) {
+    panel.querySelectorAll(".pp").forEach(function (s) { s.hidden = s.dataset.page !== name; });
+    panel.scrollTop = 0;
+    if (!focusIt) return;
+    var target = name === "menu" ? panel.querySelector('[data-go="' + focusIt + '"]') : panel.querySelector('.pp[data-page="' + name + '"] .back-link');
+    if (target) target.focus({ preventScroll: true });
+  }
+  panel.querySelectorAll("[data-go]").forEach(function (b) { b.addEventListener("click", function () { showPage(b.dataset.go, true); }); });
+  panel.querySelectorAll("[data-back]").forEach(function (b) { b.addEventListener("click", function () { showPage("menu", b.dataset.back); }); });
+  panel.querySelector('[data-action="plans"]').addEventListener("click", function () { closeAndRestoreFocus(); switchTab("programs"); });
 
   /* Ressort amorti : response = rapidité (s), damping 1 = sans rebond. Part de la valeur courante, avec sa vitesse. */
   function spring(to, v0, response, damping, done) {
@@ -1123,12 +1156,13 @@ var sheet = (function () {
     toggle.setAttribute("aria-expanded", String(next));
     if (next) {
       if (panel.hidden) { panel.hidden = false; p = 0; }
+      placeDesk();
       scrim.hidden = mqDesk.matches;
       paint();
     }
     spring(next ? 1 : 0, v0, mqReduce.matches ? 0.14 : bounce ? 0.3 : 0.38, mqReduce.matches ? 1 : bounce ? 0.8 : 1, function () {
       if (isOpen) return;
-      panel.hidden = true; scrim.hidden = true; panel.style.transform = ""; panel.style.opacity = "";
+      panel.hidden = true; scrim.hidden = true; panel.style.transform = ""; panel.style.opacity = ""; clearPlace();
     });
   }
 
@@ -1137,13 +1171,17 @@ var sheet = (function () {
     setOpen(false);
   }
 
-  toggle.addEventListener("click", function () { if (isOpen) closeAndRestoreFocus(); else setOpen(true); });
+  toggle.addEventListener("click", function () {
+    if (isOpen) { closeAndRestoreFocus(); return; }
+    showPage("menu"); paintProfile(); // on rouvre toujours sur le menu, à jour
+    setOpen(true);
+  });
   scrim.addEventListener("click", function () { setOpen(false); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen) closeAndRestoreFocus(); });
   document.addEventListener("pointerdown", function (e) { // popover non bloquant : un appui à l'extérieur le referme
     if (isOpen && mqDesk.matches && !panel.contains(e.target) && !toggle.contains(e.target)) setOpen(false);
   });
-  onMedia(mqDesk, function () { if (!panel.hidden) { scrim.hidden = mqDesk.matches; panel.style.transform = ""; paint(); } });
+  onMedia(mqDesk, function () { if (!panel.hidden) { scrim.hidden = mqDesk.matches; panel.style.transform = ""; placeDesk(); paint(); } });
 
   /* Glissement 1:1 depuis la poignée (mobile). On respecte l'endroit où le doigt a saisi la feuille. */
   grip.addEventListener("pointerdown", function (e) {
@@ -1171,8 +1209,22 @@ var sheet = (function () {
   grip.addEventListener("pointerup", release);
   grip.addEventListener("pointercancel", release);
 
-  return { open: function () { setOpen(true); }, close: function () { setOpen(false); } };
+  return { open: function () { showPage("menu"); setOpen(true); }, close: function () { setOpen(false); } };
 })();
+
+/* ---------- Profil (prénom facultatif, stocké dans meta donc synchronisé) ---------- */
+function profileName() { return String(store.meta.profileName || "").trim(); }
+function paintProfile() {
+  var nm = profileName(), ini = $("avatarInitial");
+  ini.textContent = nm ? nm.charAt(0).toUpperCase() : ""; ini.hidden = !nm;
+  document.querySelector(".avatar-ico").style.display = nm ? "none" : "";
+  $("menuProfileValue").textContent = nm || "";
+  var act = activeId();
+  $("menuPlansValue").textContent = programName(act);
+  if (document.activeElement !== $("profileName")) $("profileName").value = nm;
+  $("profileSessions").textContent = Object.keys(store.logs).length;
+  $("profileSince").textContent = store.meta.start ? parseKey(store.meta.start).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "–";
+}
 
 /* ---------- Démarrage ---------- */
 document.addEventListener("touchstart", function () {}, { passive: true });
@@ -1207,7 +1259,13 @@ refreshProgram();
 var first = nextSession(); cur = first.day; viewWeek = first.week;
 $("today").textContent = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 $("appVersion").textContent = "Setly v" + APP_VERSION;
-renderHome(); buildSession();
+$("programsBack").addEventListener("click", function () { switchTab(lastMainTab || "home"); });
+$("profileName").addEventListener("input", function () {
+  var v = this.value.trim().slice(0, 24);
+  if (v) store.meta.profileName = v; else delete store.meta.profileName;
+  save(); paintProfile(); renderHome();
+});
+renderHome(); buildSession(); paintProfile();
 setupServiceWorker();
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
 

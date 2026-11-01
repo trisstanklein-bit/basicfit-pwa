@@ -38,15 +38,17 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .date{color:var(--label-2);font-size:12px;line-height:1.25;text-align:right;text-wrap:balance}
 .date::first-letter{text-transform:uppercase}
 .top-right{display:flex;align-items:center;gap:10px}
-.cloud-toggle{min-height:44px;display:flex;align-items:center;gap:8px;background:var(--surface-1);border:0;color:var(--label-2);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:600}
-.cloud-toggle:active{transform:scale(.97)}
-.cloud-toggle .ico{width:20px;height:20px;flex:0 0 20px}
-.cloud-toggle .ico svg{display:block;width:100%;height:100%}
-#cloudShortStatus{max-width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.cloud-toggle[data-state="syncing"] .ico{animation:sync-spin 1.4s linear infinite}
-.cloud-toggle[data-state="error"]{color:var(--warn)}
-.cloud-toggle[data-state="offline"]{color:var(--label-2)}
-.cloud-toggle[data-state="signed-out"]{color:var(--label-2)}
+/* Avatar (accès secondaire : Profil, Plans, Paramètres, Synchronisation). Le point d'état reflète la synchro (data-state posé par sync.js). */
+.avatar-btn{position:relative;flex:0 0 44px;width:44px;height:44px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:var(--surface-1);color:var(--label-2);transition:background 220ms var(--ease),color 220ms var(--ease),transform 240ms var(--ease)}
+.avatar-btn[aria-expanded="true"]{background:var(--surface-3);color:var(--label)}
+.avatar-btn .avatar-ico{display:block;width:22px;height:22px}
+.avatar-initial{font-size:17px;font-weight:700;line-height:1;color:var(--accent)}
+.avatar-btn::after{content:"";position:absolute;right:2px;bottom:2px;width:12px;height:12px;border-radius:50%;border:2px solid var(--bg);background:transparent;opacity:0;transition:opacity 220ms var(--ease)}
+.avatar-btn[data-state="error"]::after{background:var(--warn);opacity:1}
+.avatar-btn[data-state="offline"]::after{background:var(--label-3);opacity:1}
+.avatar-btn[data-state="syncing"]::after{background:var(--cyan);opacity:1}
+body:has(#cloudToggle[data-state="syncing"]) #cloudIndicator svg{animation:sync-spin 1.4s linear infinite}
+body:has(#cloudToggle[data-state="error"]) #cloudIndicator{color:var(--warn)}
 @keyframes sync-spin{to{transform:rotate(360deg)}}
 .cloud-panel{margin:12px 0 16px;padding:18px}
 .cloud-panel[hidden]{display:none}
@@ -82,7 +84,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .progress-track i{display:block;height:100%;background:var(--accent);border-radius:20px;width:0;transition:width 220ms var(--ease)}
 .progress-copy{display:flex;justify-content:space-between;gap:12px;color:var(--label-2);font-size:13px}
 .progress-copy b{color:var(--label);font-variant-numeric:tabular-nums}.week-progress{display:flex;align-items:center;gap:9px}.week-progress i{display:block;width:30px;height:30px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--progress,0)*1%),var(--surface-3) 0);position:relative}.week-progress i:after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface-1)}
-.tabs{--pad:5px;position:fixed;z-index:20;bottom:var(--tab-bottom);left:50%;transform:translateX(-50%);width:min(calc(100% - 24px),520px);min-height:var(--tabbar-h);background:var(--sheen),var(--glass);-webkit-backdrop-filter:blur(24px) saturate(1.7);backdrop-filter:blur(24px) saturate(1.7);border:.5px solid var(--glass-edge);border-radius:999px;box-shadow:var(--glass-shadow);padding:var(--pad);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
+.tabs{--pad:5px;position:fixed;z-index:20;bottom:var(--tab-bottom);left:50%;transform:translateX(-50%);width:min(calc(100% - 24px),380px);min-height:var(--tabbar-h);background:var(--sheen),var(--glass);-webkit-backdrop-filter:blur(24px) saturate(1.7);backdrop-filter:blur(24px) saturate(1.7);border:.5px solid var(--glass-edge);border-radius:999px;box-shadow:var(--glass-shadow);padding:var(--pad);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
 .tabs button{position:relative;background:transparent;border:0;color:rgba(245,246,248,.74);font-size:11px;font-weight:600;min-width:0;min-height:52px;padding:5px 2px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background 220ms var(--ease),color 220ms var(--ease),transform 240ms var(--ease)}
 .tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tabs button .ico{display:block;width:22px;height:22px}
@@ -196,12 +198,11 @@ details.lh summary b i{font-style:normal;font-size:11px;color:var(--label-2);mar
  .tabs button .ico{width:22px;height:22px;margin:0}
  .tabs button.active{background:rgba(199,243,107,.13)}
  .tabs button:first-child{margin-top:6px}
- .top-right .cloud-toggle{position:fixed;z-index:30;left:30px;bottom:24px;width:180px;justify-content:flex-start;background:var(--surface-2)}
  .top-right .date{display:block}
  .timer{left:auto;right:28px;bottom:24px;transform:none;width:300px}
  .sheet-scrim{display:none}
- /* Popover ancré au bouton « Compte » (en bas à gauche, dans la barre latérale) : il en sort et y retourne. */
- .cloud-panel{position:fixed;z-index:40;top:auto;right:auto;left:240px;bottom:24px;margin:0;width:360px;max-height:calc(100dvh - 48px);overflow:auto;transform-origin:0 100%;background:var(--sheen),var(--glass-strong);-webkit-backdrop-filter:blur(30px) saturate(1.7);backdrop-filter:blur(30px) saturate(1.7);border:.5px solid var(--glass-edge);box-shadow:0 20px 60px rgba(0,0,0,.4),inset 0 .5px 0 rgba(255,255,255,.2);will-change:transform,opacity}
+ /* Popover ancré à l'avatar (en haut à droite) : app.js place top/right d'après la position du bouton ; il en sort et y retourne. */
+ .cloud-panel{position:fixed;z-index:40;top:76px;right:32px;left:auto;bottom:auto;margin:0;width:360px;max-height:calc(100dvh - 100px);overflow:auto;transform-origin:100% 0;background:var(--sheen),var(--glass-strong);-webkit-backdrop-filter:blur(30px) saturate(1.7);backdrop-filter:blur(30px) saturate(1.7);border:.5px solid var(--glass-edge);box-shadow:0 20px 60px rgba(0,0,0,.4),inset 0 .5px 0 rgba(255,255,255,.2);will-change:transform,opacity}
  .session-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
  .session-main{min-width:0}
  .session-side{position:sticky;top:24px}
@@ -271,8 +272,6 @@ details.lh summary b i{font-style:normal;font-size:11px;color:var(--label-2);mar
 
 
 /* ===== Programmes ===== */
-@media(max-width:430px){.tabs button{font-size:10px}}
-@media(max-width:350px){.tabs button{font-size:9px;letter-spacing:0;padding-left:0;padding-right:0}.tabs{--pad:4px}}
 .primary.small{min-height:44px;padding:8px 16px;font-size:14px}
 .prog-create{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
 .prog-card{background:var(--surface-1);border-radius:20px;padding:16px;margin:12px 0}
@@ -349,14 +348,51 @@ body:has(.timer:not([hidden])) .toast{bottom:calc(var(--float-bottom) + 84px)}
    Sans :has(), le fond de chaque onglet actif reste le repli. */
 @media(max-width:899px){
  @supports selector(:has(*)){
-  .tabs::before{content:"";position:absolute;top:var(--pad);bottom:var(--pad);left:var(--pad);width:calc((100% - 2 * var(--pad) - 8px) / 5);border-radius:999px;background:rgba(199,243,107,.15);box-shadow:inset 0 0 0 .5px rgba(199,243,107,.28);transform:translateX(calc(var(--i,0) * (100% + 2px)));transition:transform 460ms var(--ease-spring)}
+  .tabs::before{content:"";position:absolute;top:var(--pad);bottom:var(--pad);left:var(--pad);width:calc((100% - 2 * var(--pad) - 4px) / 3);border-radius:999px;background:rgba(199,243,107,.15);box-shadow:inset 0 0 0 .5px rgba(199,243,107,.28);transform:translateX(calc(var(--i,0) * (100% + 2px)));transition:transform 460ms var(--ease-spring)}
   .tabs:has(button:nth-child(2).active){--i:1}
   .tabs:has(button:nth-child(3).active){--i:2}
-  .tabs:has(button:nth-child(4).active){--i:3}
-  .tabs:has(button:nth-child(5).active){--i:4}
+  .tabs:not(:has(button.active))::before{opacity:0}   /* page secondaire (ex. Plans) : aucun onglet actif */
   .tabs button.active{background:transparent}
  }
 }
+
+/* ===== v2.5 : espace personnel (avatar) et historique en cartes ===== */
+.back-link{display:block;background:none;border:0;color:var(--accent);font-size:15px;font-weight:600;min-height:44px;padding:0;text-align:left}
+#programsHead .back-link{margin-top:6px}
+.cloud-panel .pp h3{font-size:20px;font-weight:700;letter-spacing:-.016em;margin:0 0 12px}
+.pp:not([hidden]){animation:view-in 240ms var(--ease) both}
+.menu-list{display:grid;gap:2px;margin:0 -6px}
+.menu-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 10px 8px 6px;border:0;border-radius:14px;background:transparent;color:var(--label);text-align:left;font-size:16px;font-weight:600;transition:background 160ms var(--ease),transform 240ms var(--ease)}
+.menu-row:active{background:var(--surface-2)}
+.menu-ico{flex:0 0 36px;width:36px;height:36px;border-radius:11px;background:var(--surface-2);color:var(--label-2);display:grid;place-items:center}
+.menu-ico svg{display:block;width:20px;height:20px}
+.menu-label{flex:1;min-width:0}
+.menu-value{max-width:42%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--label-2);font-size:13px;font-weight:500}
+.menu-chev{flex:0 0 18px;width:18px;height:18px;color:var(--label-3)}
+.pp .data-box.first{margin-top:12px;padding-top:0;border-top:0}
+.pp .app-version{margin-top:14px}
+.profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--separator)}
+.profile-stats span{display:block;color:var(--label-2);font-size:12px}
+.profile-stats strong{display:block;font-size:17px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:3px}
+
+/* Historique : cartes à défilement horizontal, qui débordent jusqu'aux bords de l'écran. */
+.h-scroll{display:flex;gap:12px;overflow-x:auto;margin:0 calc(var(--page-gutter) * -1);padding:2px var(--page-gutter) 10px;scroll-snap-type:x proximity;scroll-padding-inline:var(--page-gutter);overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.h-scroll::-webkit-scrollbar{display:none}
+.h-card{flex:0 0 clamp(236px,74vw,284px);scroll-snap-align:start;display:flex;flex-direction:column;gap:12px;min-width:0;background:var(--surface-1);border-radius:20px;padding:16px}
+.h-card.is-latest{box-shadow:inset 0 0 0 1.5px rgba(199,243,107,.42)}
+.h-head small{display:block;color:var(--label-2);font-size:12px;font-weight:600}
+.h-head small::first-letter{text-transform:uppercase}
+.h-head strong{display:block;margin-top:3px;font-size:19px;line-height:1.25;font-weight:700;letter-spacing:-.014em;overflow-wrap:anywhere}
+.h-meta{display:flex;flex-wrap:wrap;gap:6px}
+.h-meta span{font-size:12px;font-weight:600;color:var(--label-2);background:var(--surface-2);border-radius:999px;padding:4px 10px;font-variant-numeric:tabular-nums}
+.h-meta span.ok{color:var(--accent)}
+.h-loads{list-style:none;margin:0;padding:12px 0 0;border-top:1px solid var(--separator);display:grid;gap:8px}
+.h-loads li{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--label-2)}
+.h-loads li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h-loads li b{color:var(--label);font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.h-none{margin:0;padding-top:12px;border-top:1px solid var(--separator);font-size:13px;color:var(--label-3)}
+.h-open{margin-top:auto;min-height:44px;padding:0;background:none;border:0;color:var(--accent);font-size:13px;font-weight:600;text-align:left}
+@media(min-width:900px){.h-scroll{margin:0 -32px;padding-left:32px;padding-right:32px;scroll-padding-inline:32px}}
 
 /* ===== Accessibilité (en fin de fichier : doit l'emporter sur les blocs mobile / desktop) ===== */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){

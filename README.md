@@ -8,11 +8,13 @@ Application web installable (iPhone, Mac, Android) pour suivre ses séries, ses 
 - Séries à cocher, charge par exercice, rappel de la dernière charge et de l'écart.
 - Minuteur de repos automatique avec bip, vibration (selon l'appareil) et écran maintenu allumé pendant la séance.
 - Navigation par semaine : revoir ou compléter une séance passée, ou préparer la suivante.
-- Historique, records par exercice, charges regroupées par séance, graphique d'activité.
-- Onglet **Plans** : plusieurs programmes, un seul actif à la fois. Ton programme d'origine (« Mon programme ») est verrouillé : on le duplique pour le modifier, ou on part de zéro. Séances, exercices, séries, répétitions, repos, RPE, notes et liens se saisissent à la main ; l'échauffement et le circuit d'abdos sont communs.
+- Navigation en 3 onglets : **Accueil**, **Séances**, **Progrès**. L'**Historique** est en bas de Progrès, sous forme de cartes qui défilent horizontalement.
+- Records par exercice, charges regroupées par séance, graphique d'activité.
+- **Mon espace** (avatar en haut à droite) : Profil (prénom facultatif), Plans, Paramètres (sauvegarde), Synchronisation.
+- Page **Plans** : plusieurs programmes, un seul actif à la fois. Ton programme d'origine (« Mon programme ») est verrouillé : on le duplique pour le modifier, ou on part de zéro. Séances, exercices, séries, répétitions, repos, RPE, notes et liens se saisissent à la main ; l'échauffement et le circuit d'abdos sont communs.
 - Poids de corps avec courbe d'évolution.
 - Synchronisation Mac ↔ iPhone, fusion sans perte des modifications faites sur deux appareils.
-- Export / import JSON dans le panneau « Compte ».
+- Export / import JSON dans Mon espace → Paramètres.
 
 ## Fichiers du dépôt
 
@@ -54,9 +56,9 @@ Si `supabase.js` est absent, l'app tente de charger la bibliothèque depuis inte
 ## Mettre à jour l'app
 
 1. Remplace les fichiers modifiés dans GitHub.
-2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v15` devient `setly-pwa-v16`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
+2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v20` devient `setly-pwa-v21`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
 3. Ouvre l'app : un bandeau « Nouvelle version disponible » apparaît. Touche **Mettre à jour**.
-4. Vérifie la version affichée en bas du panneau « Compte » (bouton en haut à droite).
+4. Vérifie la version affichée dans Mon espace → Paramètres (avatar en haut à droite).
 
 ## Configuration Supabase
 
@@ -95,10 +97,10 @@ Elle se déclenche à la connexion, après chaque saisie (avec un court délai),
 
 ## Sauvegarde
 
-Panneau « Compte » → **Exporter** : crée un fichier `setly-sauvegarde-AAAA-MM-JJ.json` (sur iPhone, enregistre-le dans Fichiers). **Importer** remplace les données de l'appareil par celles du fichier, puis les synchronise.
+Mon espace → Paramètres → **Exporter** : crée un fichier `setly-sauvegarde-AAAA-MM-JJ.json` (sur iPhone, enregistre-le dans Fichiers). **Importer** remplace les données de l'appareil par celles du fichier, puis les synchronise.
 
 ## Dépannage
 
 - **Le bandeau de mise à jour n'apparaît pas** : vérifie que le numéro de version de `sw.js` a changé, ferme complètement l'app (balayage vers le haut) et rouvre-la.
-- **Rien ne se synchronise** : ouvre le panneau « Compte » et lis le message. « Bibliothèque non chargée » signifie que `supabase.js` est absent et que le réseau est coupé.
+- **Rien ne se synchronise** : ouvre Mon espace → Synchronisation et lis le message. « Bibliothèque non chargée » signifie que `supabase.js` est absent et que le réseau est coupé.
 - **Mauvais affichage après une mise à jour** : tous les fichiers doivent avoir été envoyés ensemble. Renvoie-les, change le numéro de version de `sw.js`, puis mets à jour.

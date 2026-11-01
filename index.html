@@ -21,17 +21,79 @@
 <header class="top">
   <div class="brand">Setly</div>
   <div class="top-right">
-    <button id="cloudToggle" class="cloud-toggle" type="button" aria-expanded="false" aria-controls="cloudPanel">
-      <span id="cloudIndicator" class="ico" aria-hidden="true"></span>
-      <span id="cloudShortStatus">Compte</span>
-    </button>
     <div class="date" id="today"></div>
+    <button id="cloudToggle" class="avatar-btn" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="cloudPanel" aria-label="Mon espace : profil, plans, paramètres, synchronisation">
+      <span class="avatar-initial" id="avatarInitial" aria-hidden="true" hidden></span>
+      <svg class="avatar-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.6-3.6 3.4-5.5 7-5.5s6.4 1.9 7 5.5"/></svg>
+    </button>
   </div>
 </header>
 
 <div class="sheet-scrim" id="cloudScrim" hidden></div>
-<section class="panel cloud-panel" id="cloudPanel" role="region" aria-label="Compte, synchronisation et sauvegarde" hidden>
+<section class="panel cloud-panel" id="cloudPanel" role="dialog" aria-label="Mon espace" hidden>
   <div class="sheet-grip" id="cloudGrip" aria-hidden="true"><i></i></div>
+
+  <!-- Espace personnel : un menu + des pages indépendantes. Pour ajouter une entrée : une ligne .menu-row (data-go) et une .pp (data-page). -->
+  <div class="pp" data-page="menu">
+    <h3>Mon espace</h3>
+    <nav class="menu-list" aria-label="Espace personnel">
+      <button class="menu-row" type="button" data-go="profile">
+        <span class="menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.6-3.6 3.4-5.5 7-5.5s6.4 1.9 7 5.5"/></svg></span>
+        <span class="menu-label">Profil</span>
+        <span class="menu-value" id="menuProfileValue"></span>
+        <svg class="menu-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      <button class="menu-row" type="button" data-action="plans">
+        <span class="menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+        <span class="menu-label">Plans</span>
+        <span class="menu-value" id="menuPlansValue"></span>
+        <svg class="menu-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      <button class="menu-row" type="button" data-go="settings">
+        <span class="menu-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg></span>
+        <span class="menu-label">Paramètres</span>
+        <span class="menu-value"></span>
+        <svg class="menu-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      <button class="menu-row" type="button" data-go="sync">
+        <span class="menu-ico" id="cloudIndicator" aria-hidden="true"></span>
+        <span class="menu-label">Synchronisation</span>
+        <span class="menu-value" id="cloudShortStatus">Compte</span>
+        <svg class="menu-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </nav>
+  </div>
+
+  <div class="pp" data-page="profile" hidden>
+    <button class="back-link" type="button" data-back="profile">‹ Mon espace</button>
+    <h3>Profil</h3>
+    <label class="pf" for="profileName"><span>Prénom</span>
+      <input id="profileName" type="text" maxlength="24" autocomplete="given-name" autocapitalize="words" enterkeyhint="done" placeholder="Ton prénom">
+    </label>
+    <p class="hint">Il personnalise l'accueil et ton avatar, et se synchronise avec ton compte.</p>
+    <div class="profile-stats">
+      <div><span>Séances terminées</span><strong id="profileSessions">0</strong></div>
+      <div><span>Première utilisation</span><strong id="profileSince">–</strong></div>
+    </div>
+  </div>
+
+  <div class="pp" data-page="settings" hidden>
+    <button class="back-link" type="button" data-back="settings">‹ Mon espace</button>
+    <h3>Paramètres</h3>
+    <div class="data-box first">
+      <h4>Sauvegarde</h4>
+      <p class="muted" style="font-size:12px;margin:0" id="dataStatus" role="status" aria-live="polite">Exporte une copie de tes séances et de tes charges, ou restaure-la.</p>
+      <div class="data-actions">
+        <button class="ghost" id="exportBtn" type="button">Exporter</button>
+        <button class="ghost" id="importBtn" type="button">Importer</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <p class="app-version" id="appVersion"></p>
+  </div>
+
+  <div class="pp" data-page="sync" hidden>
+  <button class="back-link" type="button" data-back="sync">‹ Mon espace</button>
   <h3>Synchronisation</h3>
   <p class="muted" id="cloudStatus" style="font-size:13px" role="status" aria-live="polite">
     Non connecté · Tes données restent enregistrées sur cet appareil.
@@ -48,16 +110,6 @@
     <button class="primary" id="cloudSetPwdBtn" type="button">Enregistrer le mot de passe</button>
   </div>
   <button id="cloudLogout" class="ghost" type="button" hidden>Se déconnecter</button>
-
-  <div class="data-box">
-    <h4>Sauvegarde</h4>
-    <p class="muted" style="font-size:12px;margin:0" id="dataStatus" role="status" aria-live="polite">Exporte une copie de tes séances et de tes charges, ou restaure-la.</p>
-    <div class="data-actions">
-      <button class="ghost" id="exportBtn" type="button">Exporter</button>
-      <button class="ghost" id="importBtn" type="button">Importer</button>
-      <input id="importFile" type="file" accept="application/json,.json" hidden>
-    </div>
-    <p class="app-version" id="appVersion"></p>
   </div>
 </section>
 
@@ -104,12 +156,6 @@
   <div id="sessionContent"></div>
 </section>
 
-<section id="history" class="view">
-  <div class="page-title">Historique</div>
-  <p class="page-sub">Retrouve les entraînements que tu as terminés.</p>
-  <div id="historyList"></div>
-</section>
-
 <section id="progress" class="view">
   <div class="page-title">Progression</div>
   <p class="page-sub">Un aperçu de ton volume d'entraînement.</p>
@@ -137,9 +183,12 @@
   </section>
   <div class="section-head"><h2>Charges enregistrées</h2></div>
   <div id="loadsList"></div>
+  <div class="section-head"><h2>Historique</h2><span class="muted" id="historyCount" style="font-size:12px"></span></div>
+  <div id="historyList"></div>
 </section>
 <section id="programs" class="view">
   <div id="programsHead">
+    <button class="back-link" id="programsBack" type="button">‹ Retour</button>
     <div class="page-title">Plans d'entraînement</div>
     <p class="page-sub">Crée et modifie tes programmes. Un seul est actif à la fois : il pilote l'accueil et les séances.</p>
   </div>
@@ -165,9 +214,7 @@
 <nav class="tabs" aria-label="Navigation principale">
   <button data-tab="home" class="active" type="button" aria-label="Accueil"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9M9 21v-7h6v7"/></svg><span>Accueil</span></button>
   <button data-tab="sessions" type="button" aria-label="Séances"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8v8M3.5 10v4M18 8v8M20.5 10v4M6 12h12"/></svg><span>Séances</span></button>
-  <button data-tab="history" type="button" aria-label="Historique"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Historique</span></button>
   <button data-tab="progress" type="button" aria-label="Progression"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M6 16v-5M12 16V5M18 16V9"/></svg><span>Progrès</span></button>
-  <button data-tab="programs" type="button" aria-label="Plans"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Plans</span></button>
 </nav>
 
 <!-- Bibliothèque Supabase hébergée dans le dépôt (voir README). Si le fichier est absent, sync.js la charge depuis le CDN. -->
