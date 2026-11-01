@@ -15,13 +15,14 @@ Application web installable (iPhone, Mac, Android) pour suivre ses séries, ses 
 - Poids de corps avec courbe d'évolution.
 - Synchronisation Mac ↔ iPhone, fusion sans perte des modifications faites sur deux appareils.
 - Export / import JSON dans Mon espace → Paramètres.
+- **Mode sombre / mode clair** : interrupteur dans Mon espace → Paramètres → Apparence. Réglage propre à chaque appareil (mémorisé localement, non synchronisé, non exporté). Sombre par défaut.
 
 ## Fichiers du dépôt
 
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Structure de la page |
-| `styles.css` | Mise en forme |
+| `styles.css` | Mise en forme et thèmes (jetons de couleur : sombre dans `:root`, clair dans `:root[data-theme="light"]`) |
 | `app.js` | Programme, séances, historique, minuteur |
 | `sync.js` | Connexion et synchronisation Supabase |
 | `supabase.js` | Bibliothèque Supabase hébergée dans le dépôt (voir ci-dessous) |
@@ -56,7 +57,7 @@ Si `supabase.js` est absent, l'app tente de charger la bibliothèque depuis inte
 ## Mettre à jour l'app
 
 1. Remplace les fichiers modifiés dans GitHub.
-2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v21` devient `setly-pwa-v22`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
+2. **Dans `sw.js`, change le numéro de version** : `setly-pwa-v22` devient `setly-pwa-v23`, et ainsi de suite. Sans cela, les appareils gardent l'ancienne version en cache.
 3. Ouvre l'app : un bandeau « Nouvelle version disponible » apparaît. Touche **Mettre à jour**.
 4. Vérifie la version affichée dans Mon espace → Paramètres (avatar en haut à droite).
 
