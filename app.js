@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.9";
+var APP_VERSION = "3.0";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];
@@ -82,9 +82,38 @@ var afterSave = null; // crochet appelé après chaque sauvegarde (défini par s
 function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
 function save() { rev++; persist(); if (afterSave) afterSave(); }
 function getData() { var d = {}; MAPS.forEach(function (k) { d[k] = store[k]; }); return d; }
-function applyData(d) {
-  var before = JSON.stringify(getData());
-  MAPS.forEach(function (k) { store[k] = (d && d[k] && typeof d[k] === "object") ? d[k] : {}; });
+function isObj(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
+function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+
+/* Fusion d'une catégorie importée dans la catégorie existante : on ajoute et on met à jour, on ne supprime jamais.
+   En cas de conflit sur une même clé, la version importée l'emporte (sauf meta.start : la date la plus ancienne reste). */
+function mergeCategory(k, cur, inc) {
+  var out = {};
+  Object.keys(cur).forEach(function (n) { out[n] = cur[n]; });
+  Object.keys(inc).forEach(function (n) {
+    if (k === "hist" && has(out, n) && isObj(out[n]) && isObj(inc[n])) {
+      var h = {};
+      Object.keys(out[n]).forEach(function (dt) { h[dt] = out[n][dt]; });
+      Object.keys(inc[n]).forEach(function (dt) { h[dt] = inc[n][dt]; });
+      out[n] = h;
+    } else if (k === "meta" && n === "start" && has(out, n) && out[n]) {
+      out[n] = (inc[n] && String(inc[n]) < String(out[n])) ? inc[n] : out[n];
+    } else out[n] = inc[n];
+  });
+  return out;
+}
+
+/* Applique des données à l'application.
+   - Une catégorie absente (ou qui n'est pas un objet) n'est JAMAIS touchée.
+   - Une catégorie présente remplace l'existante (comportement de la synchro, qui envoie l'état complet fusionné),
+     ou, avec { merge: true } (import de fichier), est fusionnée sans rien supprimer. */
+function applyData(d, opts) {
+  var merge = !!(opts && opts.merge), before = JSON.stringify(getData()), next = {};
+  MAPS.forEach(function (k) {
+    if (!d || !isObj(d[k])) return;
+    next[k] = merge ? mergeCategory(k, store[k], d[k]) : d[k];
+  });
+  Object.keys(next).forEach(function (k) { store[k] = next[k]; }); // affectation seulement après calcul complet
   if (JSON.stringify(getData()) === before) return false;
   persist();
   refreshProgram();
@@ -749,16 +778,147 @@ function exportData() {
   }
   downloadText(text, name);
 }
+/* ---------- Import : validation stricte, aperçu, confirmation ---------- */
+var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var CAT_LABEL = {
+  sets: "séries validées", load: "dernières charges", logs: "séances terminées", hist: "historique des charges",
+  warm: "échauffements", meta: "profil et réglages", weight: "poids de corps", programs: "plans d'entraînement"
+};
+var IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+
+function bad(k, msg) { throw new Error(CAT_LABEL[k] + " : " + msg); }
+function scalar(v) { return typeof v === "string" || (typeof v === "number" && isFinite(v)); }
+
+/* Contrôle et normalise une catégorie. Lève une erreur au moindre élément non conforme ; ne modifie rien. */
+function cleanCategory(k, src) {
+  var out = {};
+  Object.keys(src).forEach(function (n) {
+    var v = src[n];
+    if (n === "__proto__") bad(k, "clé interdite.");
+    if (k === "sets" || k === "warm") {
+      if (isObj(v) || Array.isArray(v)) bad(k, "valeur invalide pour « " + n + " ».");
+      if (v) out[n] = k === "sets" ? 1 : true;
+    } else if (k === "load") {
+      if (!scalar(v)) bad(k, "valeur invalide pour « " + n + " ».");
+      if (String(v).trim()) out[n] = String(v).trim();
+    } else if (k === "weight") {
+      if (!DATE_RE.test(n)) bad(k, "date invalide « " + n + " ».");
+      if (!scalar(v)) bad(k, "valeur invalide pour le " + n + ".");
+      if (String(v).trim()) out[n] = String(v).trim();
+    } else if (k === "meta") {
+      if (!scalar(v) && v !== "" && v !== null) bad(k, "valeur invalide pour « " + n + " ».");
+      if (n === "start" && v && !DATE_RE.test(String(v))) bad(k, "date de première utilisation invalide.");
+      if (v !== null && String(v).trim()) out[n] = String(v);
+    } else if (k === "logs") {
+      if (!isObj(v) || typeof v.date !== "string" || !DATE_RE.test(v.date) || typeof v.id !== "string" || !v.id) bad(k, "séance invalide « " + n + " ».");
+      out[n] = v;
+    } else if (k === "hist") {
+      if (!isObj(v)) bad(k, "entrée invalide pour « " + n + " ».");
+      var h = {};
+      Object.keys(v).forEach(function (dt) {
+        if (dt === "__proto__" || !DATE_RE.test(dt)) bad(k, "date invalide pour « " + n + " ».");
+        if (!scalar(v[dt])) bad(k, "charge invalide pour « " + n + " » le " + dt + ".");
+        if (String(v[dt]).trim()) h[dt] = String(v[dt]).trim();
+      });
+      if (Object.keys(h).length) out[n] = h;
+    } else if (k === "programs") {
+      if (!isObj(v) || typeof v.name !== "string" || !v.name.trim() || !Array.isArray(v.days) || !v.days.length) bad(k, "plan invalide « " + n + " ».");
+      var used = {};
+      v.days.forEach(function (day) {
+        if (!isObj(day) || typeof day.id !== "string" || !day.id || typeof day.tag !== "string" || !day.tag.trim() ||
+            !(day.dow >= 1 && day.dow <= 7 && Math.floor(day.dow) === day.dow) || used[day.dow] || !Array.isArray(day.ex) || !day.ex.length) bad(k, "séance invalide dans le plan « " + v.name + " ».");
+        used[day.dow] = true;
+        day.ex.forEach(function (x) {
+          if (!Array.isArray(x) || typeof x[0] !== "string" || !x[0].trim() || !(x[1] >= 1 && x[1] <= 10 && Math.floor(x[1]) === x[1])) bad(k, "exercice invalide dans le plan « " + v.name + " ».");
+        });
+      });
+      out[n] = v;
+    }
+  });
+  return out;
+}
+
+/* Valide tout le fichier et renvoie uniquement les catégories présentes, normalisées. Rien n'est modifié ici. */
+function parseImport(text) {
+  var p;
+  try { p = JSON.parse(text); } catch (e) { throw new Error("ce n'est pas un fichier JSON valide."); }
+  if (!isObj(p)) throw new Error("le contenu n'est pas une sauvegarde Setly.");
+  if (has(p, "app") && p.app !== "setly") throw new Error("cette sauvegarde provient d'une autre application.");
+  if (has(p, "format") && p.format !== 1) throw new Error("version de sauvegarde non prise en charge.");
+  var d = has(p, "data") ? p.data : p;
+  if (!isObj(d)) throw new Error("les données de la sauvegarde sont absentes ou invalides.");
+  var cats = MAPS.filter(function (k) { return has(d, k); });
+  if (!cats.length) throw new Error("aucune donnée Setly reconnue.");
+  var clean = {}, total = 0;
+  cats.forEach(function (k) {
+    if (!isObj(d[k])) bad(k, "format invalide.");
+    clean[k] = cleanCategory(k, d[k]);
+    total += Object.keys(clean[k]).length;
+  });
+  if (!total) throw new Error("le fichier ne contient aucune donnée à importer.");
+  return { data: clean, cats: cats };
+}
+
+/* Aplatit une catégorie en « clé → texte » pour comparer l'existant et le résultat de la fusion. */
+function flatCat(k, o) {
+  var f = {};
+  Object.keys(o).forEach(function (n) {
+    if (k === "hist" && isObj(o[n])) Object.keys(o[n]).forEach(function (dt) { f[n + "\u0001" + dt] = String(o[n][dt]); });
+    else f[n] = JSON.stringify(o[n]);
+  });
+  return f;
+}
+
+/* Ce que l'import va faire, catégorie par catégorie (calculé comme l'application réelle, sans rien appliquer). */
+function previewImport(parsed) {
+  var rows = [], added = 0, replaced = 0;
+  parsed.cats.forEach(function (k) {
+    var inc = flatCat(k, parsed.data[k]), cur = flatCat(k, store[k]), res = flatCat(k, mergeCategory(k, store[k], parsed.data[k]));
+    var a = 0, c = 0, t = Object.keys(inc).length;
+    Object.keys(inc).forEach(function (key) {
+      if (!has(cur, key)) a++; else if (res[key] !== cur[key]) c++;
+    });
+    added += a; replaced += c;
+    rows.push({ k: k, total: t, added: a, replaced: c });
+  });
+  return { rows: rows, added: added, replaced: replaced, kept: MAPS.filter(function (k) { return parsed.cats.indexOf(k) < 0; }) };
+}
+
+function importMessage(pv) {
+  var lines = ["Importer cette sauvegarde ?", "", "Catégories présentes dans le fichier :"];
+  pv.rows.forEach(function (r) {
+    var det = [];
+    if (r.added) det.push(r.added + " nouveau" + (r.added > 1 ? "x" : ""));
+    if (r.replaced) det.push(r.replaced + " remplacé" + (r.replaced > 1 ? "s" : ""));
+    if (!r.added && !r.replaced) det.push("déjà à jour");
+    lines.push("• " + CAT_LABEL[r.k] + " : " + r.total + " élément" + (r.total > 1 ? "s" : "") + " (" + det.join(", ") + ")");
+  });
+  lines.push("");
+  lines.push(pv.kept.length
+    ? "Conservées sans changement : " + pv.kept.map(function (k) { return CAT_LABEL[k]; }).join(", ") + "."
+    : "Aucune catégorie de ton appareil n'est absente du fichier.");
+  lines.push("");
+  lines.push(pv.replaced
+    ? "⚠ " + pv.replaced + " élément" + (pv.replaced > 1 ? "s" : "") + " existant" + (pv.replaced > 1 ? "s seront remplacés" : " sera remplacé") + " par la version du fichier."
+    : "Aucun élément existant ne sera remplacé.");
+  lines.push("Rien n'est supprimé : les données du fichier sont fusionnées avec celles de cet appareil.");
+  return lines.join("\n");
+}
+
 function importData(file) {
+  var done = function () { $("importFile").value = ""; };
+  if (file && file.size > IMPORT_MAX_BYTES) { setDataStatus("Fichier trop volumineux : import annulé. Aucune donnée modifiée."); done(); return; }
   var r = new FileReader();
+  r.onerror = function () { setDataStatus("Lecture du fichier impossible : import annulé. Aucune donnée modifiée."); done(); };
   r.onload = function () {
     try {
-      var p = JSON.parse(r.result), d = p && p.data ? p.data : p;
-      if (!d || typeof d !== "object" || !(d.sets || d.hist || d.logs)) throw new Error("format");
-      if (!confirm("Remplacer les données de cet appareil par cette sauvegarde ?")) return;
-      applyData(d); save(); setDataStatus("Sauvegarde restaurée.");
-    } catch (e) { setDataStatus("Fichier non reconnu : import annulé."); }
-    finally { $("importFile").value = ""; }
+      var parsed = parseImport(String(r.result)), pv = previewImport(parsed);
+      if (!pv.added && !pv.replaced) { setDataStatus("Rien à importer : ces données sont déjà présentes sur cet appareil."); return; }
+      if (!confirm(importMessage(pv))) { setDataStatus("Import annulé. Aucune donnée modifiée."); return; }
+      applyData(parsed.data, { merge: true }); save();
+      setDataStatus("Sauvegarde importée : " + pv.added + " ajouté" + (pv.added > 1 ? "s" : "") + ", " + pv.replaced + " remplacé" + (pv.replaced > 1 ? "s" : "") + ".");
+    } catch (e) { setDataStatus("Fichier non reconnu : " + (e && e.message ? e.message : "format invalide") + " Import annulé, aucune donnée modifiée."); }
+    finally { done(); }
   };
   r.readAsText(file);
 }

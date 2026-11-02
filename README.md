@@ -99,7 +99,7 @@ Elle se déclenche à la connexion, après chaque saisie (avec un court délai),
 
 ## Sauvegarde
 
-Mon espace → Paramètres → **Exporter** : crée un fichier `setly-sauvegarde-AAAA-MM-JJ.json` (sur iPhone, enregistre-le dans Fichiers). **Importer** remplace les données de l'appareil par celles du fichier, puis les synchronise.
+Mon espace → Paramètres → **Exporter** : crée un fichier `setly-sauvegarde-AAAA-MM-JJ.json` (sur iPhone, enregistre-le dans Fichiers). **Importer** vérifie d'abord le fichier (un fichier invalide est refusé sans rien modifier), affiche les catégories concernées et le nombre d'éléments ajoutés ou remplacés, puis demande confirmation. Les données du fichier sont **fusionnées** avec celles de l'appareil : rien n'est supprimé, les catégories absentes du fichier restent intactes et, en cas de conflit sur un même élément, la version du fichier l'emporte. Les données sont ensuite synchronisées.
 
 ## Dépannage
 
