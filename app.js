@@ -58,7 +58,7 @@ var DEFAULT_DAYS = [
   ]}
 ];
 
-var APP_VERSION = "2.8";
+var APP_VERSION = "2.9";
 /* Nom historique de la clé de stockage : on le garde tel quel pour ne perdre aucune donnée existante. */
 var STORE_KEY = "basicfit-v1";
 var MAPS = ["sets", "load", "logs", "hist", "warm", "meta", "weight", "programs"];

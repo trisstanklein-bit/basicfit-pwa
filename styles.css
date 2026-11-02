@@ -512,6 +512,7 @@ body:has(.timer:not([hidden])) .toast{bottom:calc(var(--float-bottom) + 84px)}
 html.lg-ok{--tab-glass:rgba(24,26,31,.34);--lg-fill:rgba(30,32,38,.5)}
 html.lg-ok[data-theme="light"]{--tab-glass:rgba(246,248,251,.42);--lg-fill:rgba(255,255,255,.55)}
 html.lg-ok :is(.tabs,.timer,.toast,.update-banner){-webkit-backdrop-filter:var(--lg-bf,blur(24px) saturate(1.4));backdrop-filter:var(--lg-bf,blur(24px) saturate(1.4))}
+html.lg-ok :is(.tabs,.timer,.toast,.update-banner)::after{display:none} /* le reflet spéculaire est déjà dans le filtre SVG */
 html.lg-ok :is(.timer,.toast,.update-banner){text-shadow:0 1px 6px rgba(0,0,0,.25)}
 html.lg-ok[data-theme="light"] :is(.timer,.toast,.update-banner){text-shadow:none}
 /* Accessibilité (doit rester en dernier) : transparence réduite / contraste renforcé = verre opaque, sans réfraction ni liseré. */
