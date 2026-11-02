@@ -25,7 +25,6 @@ Application web installable (iPhone, Mac, Android) pour suivre ses séries, ses 
 | `styles.css` | Mise en forme et thèmes (jetons de couleur : sombre dans `:root`, clair dans `:root[data-theme="light"]`) |
 | `app.js` | Programme, séances, historique, minuteur |
 | `sync.js` | Connexion et synchronisation Supabase |
-| `liquid-glass.js` | Effet Liquid Glass (réfraction SVG, Chromium uniquement ; sans effet ailleurs) |
 | `supabase.js` | Bibliothèque Supabase hébergée dans le dépôt (voir ci-dessous) |
 | `sw.js` | Service worker : mode hors connexion et mises à jour |
 | `manifest.webmanifest` | Nom, couleurs et icônes de l'app |
@@ -99,7 +98,7 @@ Elle se déclenche à la connexion, après chaque saisie (avec un court délai),
 
 ## Sauvegarde
 
-Mon espace → Paramètres → **Exporter** : crée un fichier `setly-sauvegarde-AAAA-MM-JJ.json` (sur iPhone, enregistre-le dans Fichiers). **Importer** vérifie d'abord le fichier (un fichier invalide est refusé sans rien modifier), affiche les catégories concernées et le nombre d'éléments ajoutés ou remplacés, puis demande confirmation. Les données du fichier sont **fusionnées** avec celles de l'appareil : rien n'est supprimé, les catégories absentes du fichier restent intactes et, en cas de conflit sur un même élément, la version du fichier l'emporte. Les données sont ensuite synchronisées.
+Mon espace → Paramètres → **Exporter** : crée un fichier `setly-sauvegarde-AAAA-MM-JJ.json` (sur iPhone, enregistre-le dans Fichiers). **Importer** remplace les données de l'appareil par celles du fichier, puis les synchronise.
 
 ## Dépannage
 
