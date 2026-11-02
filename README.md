@@ -25,6 +25,7 @@ Application web installable (iPhone, Mac, Android) pour suivre ses séries, ses 
 | `styles.css` | Mise en forme et thèmes (jetons de couleur : sombre dans `:root`, clair dans `:root[data-theme="light"]`) |
 | `app.js` | Programme, séances, historique, minuteur |
 | `sync.js` | Connexion et synchronisation Supabase |
+| `liquid-glass.js` | Effet Liquid Glass (réfraction SVG, Chromium uniquement ; sans effet ailleurs) |
 | `supabase.js` | Bibliothèque Supabase hébergée dans le dépôt (voir ci-dessous) |
 | `sw.js` | Service worker : mode hors connexion et mises à jour |
 | `manifest.webmanifest` | Nom, couleurs et icônes de l'app |
