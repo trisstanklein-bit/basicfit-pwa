@@ -1,6 +1,6 @@
 /* Setly — service worker.
    Pour publier une nouvelle version : change simplement le numéro ci-dessous (ex. v10 -> v11). */
-const CACHE_NAME = "setly-pwa-v25";
+const CACHE_NAME = "setly-pwa-v26";
 
 /* Fichiers indispensables : si l'un manque, l'installation échoue et l'ancienne version reste active. */
 const APP_SHELL = [
@@ -19,7 +19,8 @@ const APP_SHELL = [
 /* Fichiers facultatifs : mis en cache s'ils existent, sans bloquer l'installation. */
 const OPTIONAL = [
   "./supabase.js",
-  "./icon-1024.png"
+  "./icon-1024.png",
+  "./liquid-glass.js"
 ];
 
 self.addEventListener("install", (event) => {

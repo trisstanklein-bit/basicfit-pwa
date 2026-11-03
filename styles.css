@@ -486,3 +486,33 @@ body:has(.timer:not([hidden])) .toast{bottom:calc(var(--float-bottom) + 84px)}
  html.theme-anim .setting-row .sw-thumb{transition-property:left,width,background-color,color!important;transition-duration:320ms,220ms,300ms,300ms!important;transition-timing-function:var(--ease-spring)!important}
  html.theme-anim .setting-row .sw-thumb svg{transition-property:opacity,scale,rotate!important;transition-duration:200ms,320ms,320ms!important;transition-timing-function:var(--ease-spring)!important}
 }
+
+
+/* ===== v3 : passe de design =====
+   1. Accueil : la séance du jour devient l'unique aplat de couleur (citron de la marque), sans halo.
+   2. Chiffres en police arrondie (SF Pro Rounded sur Apple), comme les icônes et les pastilles de séries.
+   3. Hiérarchie : titres de section plus discrets que le titre de page ; petits textes à 12 px minimum ; cibles tactiles à 44 px.
+   4. Liquid Glass (liquid-glass.js) : activé seulement sous Chromium (classe .lg-ok) ; ailleurs, le flou classique reste. */
+:root{--font-num:ui-rounded,"SF Pro Rounded",var(--font);--lg-tone:saturate(1.6);--lg-bg:rgba(24,26,31,.42)}
+:root[data-theme="light"]{--lg-bg:rgba(250,251,253,.5)}
+
+h1,h2,h3,.page-title{text-wrap:balance}
+.hero p,.page-sub,.note,.hint{text-wrap:pretty}
+
+.hero-card{background:var(--accent);box-shadow:none;color:var(--on-accent)}
+.hero-card .label{color:var(--on-accent);opacity:.72}
+.hero-card h2{font-size:28px;letter-spacing:-.024em;color:var(--on-accent)}
+.hero-card p{color:var(--on-accent);opacity:.8}
+.hero-card .primary{background:var(--on-accent);color:var(--accent)}
+
+.section-head{margin-top:28px}
+.section-head h2{font-size:19px;letter-spacing:-.014em}
+.week small,.chart small,.lbars small{font-size:12px}
+.week-nav .today-btn{min-height:44px;padding:0 12px}
+
+.stat strong,.timer strong,.set,.load input,.week b,.weight-main strong,.weight-change strong,.lbars em,.progress-copy b{font-family:var(--font-num)}
+.stat strong{letter-spacing:-.02em}
+
+@media (prefers-reduced-transparency:no-preference) and (prefers-contrast:no-preference){
+ .lg-ok .tabs,.lg-ok .timer,.lg-ok .toast,.lg-ok .update-banner{background:var(--lg-bg);-webkit-backdrop-filter:var(--lg-bf,blur(24px) saturate(1.4));backdrop-filter:var(--lg-bf,blur(24px) saturate(1.4))}
+}
